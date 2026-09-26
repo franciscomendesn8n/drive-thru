@@ -265,6 +265,15 @@ DT.nuvem = (function () {
   function userId() { return sessao && sessao.user ? sessao.user.id : null; }
 
   async function prepararSessao() {
+    // A sessão guardada no navegador pode ter sido revogada no servidor
+    const conf = await sb.auth.getUser();
+    if (conf.error && (conf.error.status === 401 || conf.error.status === 403 || /session.*not.*found|missing|invalid/i.test(conf.error.message || ''))) {
+      saindo = true;
+      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* ignora */ }
+      saindo = false;
+      sessao = null;
+      return { ok: false, erro: 'Sua sessão foi encerrada. Entre novamente.' };
+    }
     await carregar();
     const u = DT.db.users().find(x => x.id === userId());
     if (!u || !u.ativo) {

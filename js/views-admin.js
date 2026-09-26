@@ -60,6 +60,25 @@ DT.views.usuarios = (function () {
           if (!u && lista.some(x => x.login === login)) { ui.toast('Já existe um usuário com esse login.', 'warn'); return false; }
           if ((!u || senha) && senha.length < 6) { ui.toast('A senha deve ter pelo menos 6 caracteres.', 'warn'); return false; }
           const dados = { nome: nome, email: v('#uf-email'), perfil: root.querySelector('#uf-perfil').value, ativo: root.querySelector('#uf-ativo').checked };
+          if (DT.db.modoNuvem()) {
+            // Na nuvem, usuários e senhas são gravados pela função segura do servidor
+            const btn = root.querySelector('.modal-foot .btn.primary');
+            btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Salvando…';
+            const pedido = u ? Object.assign({ acao: 'atualizar', id: u.id, senha: senha || undefined }, dados)
+                             : Object.assign({ acao: 'criar', login: login, senha: senha }, dados);
+            DT.nuvem.gerenciarUsuario(pedido).then(() => {
+              DT.audit.registrar(u ? 'Alterou usuário' : 'Criou usuário', 'Usuário', u ? u.login : login,
+                u ? u.perfil + (u.ativo ? '/ativo' : '/inativo') : null,
+                dados.perfil + (dados.ativo ? '/ativo' : '/inativo') + (senha && u ? ' + senha redefinida' : ''));
+              document.querySelectorAll('.modal-back').forEach(m => m.remove());
+              ui.toast('Usuário salvo.');
+              desenhar();
+            }).catch(err => {
+              btn.disabled = false; btn.textContent = 'Salvar';
+              ui.toast(err.message || 'Não foi possível salvar o usuário.', 'err');
+            });
+            return false;
+          }
           if (u) {
             const antes = u.perfil + (u.ativo ? '/ativo' : '/inativo');
             if (u.id === eu.id) { dados.perfil = u.perfil; dados.ativo = true; }
@@ -307,7 +326,8 @@ DT.views.config = (function () {
       '<div class="row end"><button type="button" class="btn ghost" id="cf-reset">Restaurar padrão do projeto</button><button type="submit" class="btn primary lg">' + ui.icon('check') + 'Salvar configurações</button></div>' +
       '</form>' +
       '<section class="card"><div class="card-head"><h3>Dados do sistema</h3></div><div class="card-body">' +
-        '<p class="muted">Nesta versão os dados ficam salvos neste navegador' + (DT.db.estaPersistindo() ? '' : ' (o armazenamento está bloqueado: os dados valem só para esta sessão)') + '. A integração com banco de dados e ERP substitui essa camada sem mudar as telas.</p>' +
+        (DT.db.modoNuvem() ? '<p class="muted">Os dados ficam no banco de dados na nuvem (Supabase) e são compartilhados por todos os usuários, em tempo real.</p>' :
+          '<p class="muted">Nesta versão os dados ficam salvos neste navegador' + (DT.db.estaPersistindo() ? '' : ' (o armazenamento está bloqueado: os dados valem só para esta sessão)') + '. A integração com banco de dados e ERP substitui essa camada sem mudar as telas.</p>') +
         '<div class="row"><button type="button" class="btn ghost" id="cf-demo">' + ui.icon('refresh') + 'Recriar dados de demonstração</button>' +
         '<button type="button" class="btn danger" id="cf-limpar">' + ui.icon('ban') + 'Começar operação real (apagar agendamentos)</button></div>' +
       '</div></section>';
@@ -352,9 +372,15 @@ DT.views.config = (function () {
       ui.toast('Parâmetros restaurados.'); desenhar();
     });
     el.querySelector('#cf-demo').addEventListener('click', async () => {
-      const r = await ui.confirmar({ titulo: 'Recriar dados de demonstração', perigo: true, ok: 'Recriar', mensagem: 'Todos os dados deste navegador (agendamentos, usuários, configurações e auditoria) serão substituídos por dados de demonstração novos. Você precisará entrar novamente.' });
+      const r = await ui.confirmar({ titulo: 'Recriar dados de demonstração', perigo: true, ok: 'Recriar', mensagem: DT.db.modoNuvem() ? 'Agendamentos, funcionários, configurações e auditoria do servidor serão substituídos por dados de demonstração novos, para todos os usuários. Os usuários e senhas são mantidos.' : 'Todos os dados deste navegador (agendamentos, usuários, configurações e auditoria) serão substituídos por dados de demonstração novos. Você precisará entrar novamente.' });
       if (!r.ok) return;
       DT.seed.executar(true);
+      if (DT.db.modoNuvem()) {
+        await DT.nuvem.enviar();
+        ui.toast('Dados de demonstração recriados no servidor.');
+        DT.app.render();
+        return;
+      }
       DT.session.clear();
       history.replaceState(null, '', location.pathname + location.search);
       DT.app.render();

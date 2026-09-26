@@ -10,6 +10,8 @@ window.DT = window.DT || {};
 DT.cliente = (function () {
   const U = DT.util, ui = DT.ui, esc = U.esc, S = DT.STATUS;
   let root, codigoAtual = null, timer = null, ultimoPronto = null, audioCtx = null, avisosAtivos = false;
+  let agAtual = null, unidadeAtual = '', semConexao = false, carregado = false;
+  const nuvem = () => DT.db.modoNuvem();
   const tituloBase = 'Acompanhe sua retirada · Drive Thru';
 
   /* ---------- etapas vistas pelo cliente ---------- */
@@ -98,7 +100,7 @@ DT.cliente = (function () {
     return '<div class="cli">' +
       '<header class="cli-top"><div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div></header>' +
       '<main class="cli-main">' + conteudo + '</main>' +
-      '<footer class="cli-foot">' + esc(DT.db.settings().unidade) + ' · Esta página se atualiza sozinha.</footer>' +
+      '<footer class="cli-foot">' + esc(unidadeAtual || DT.DEFAULT_SETTINGS.unidade) + ' · Esta página se atualiza sozinha.</footer>' +
       '</div>';
   }
 
@@ -114,17 +116,53 @@ DT.cliente = (function () {
         '<div class="field"><label for="cli-tel">4 últimos dígitos do telefone</label><input id="cli-tel" class="input mono" inputmode="numeric" maxlength="4" placeholder="4321"></div></div>' +
         '<button type="submit" class="btn primary lg block">' + ui.icon('search') + 'Acompanhar</button>' +
       '</form></section>');
-    root.querySelector('#cli-f').addEventListener('submit', e => {
+    root.querySelector('#cli-f').addEventListener('submit', async e => {
       e.preventDefault();
-      const cod = root.querySelector('#cli-cod').value.trim();
-      let ag = cod ? DT.ag.porCodigo(cod) : DT.ag.porPedidoTelefone(root.querySelector('#cli-ped').value, root.querySelector('#cli-tel').value);
-      if (!ag) { telaBusca('Não encontramos um agendamento com esses dados. Confira e tente novamente, ou fale com o seu vendedor.'); return; }
+      const cod = root.querySelector('#cli-cod').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const ped = root.querySelector('#cli-ped').value, tel = root.querySelector('#cli-tel').value;
+      const naoAchou = 'Não encontramos um agendamento com esses dados. Confira e tente novamente, ou fale com o seu vendedor.';
+      if (cod) { location.hash = '#acompanhar-' + cod; return; }
+      if (nuvem()) {
+        const btn = root.querySelector('#cli-f button[type=submit]');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Buscando…';
+        let achado = null;
+        try { achado = await DT.nuvem.acompanharPorPedido(ped, tel); }
+        catch (err) { telaBusca('Não foi possível consultar agora. Verifique a internet e tente novamente.'); return; }
+        if (!achado) { telaBusca(naoAchou); return; }
+        location.hash = '#acompanhar-' + achado;
+        return;
+      }
+      const ag = DT.ag.porPedidoTelefone(ped, tel);
+      if (!ag) { telaBusca(naoAchou); return; }
       location.hash = '#acompanhar-' + DT.ag.codigo(ag);
     });
   }
 
+  /* Busca os dados do agendamento (servidor no modo nuvem, memória no modo local) */
+  async function atualizar() {
+    const cod = codigoAtual;
+    if (!cod) { agAtual = null; desenhar(); return; }
+    if (nuvem()) {
+      try {
+        const r = await DT.nuvem.acompanhar(cod);
+        if (cod !== codigoAtual) return;       // o cliente mudou de pedido enquanto buscava
+        agAtual = r || null;
+        if (r && r.unidade) unidadeAtual = r.unidade;
+        semConexao = false;
+      } catch (e) {
+        semConexao = true;
+        if (!carregado) { root.innerHTML = casca(ui.notice('warn', 'Não foi possível conectar ao servidor. Verifique a internet; tentaremos de novo automaticamente.')); return; }
+      }
+    } else {
+      agAtual = DT.ag.porCodigo(cod);
+      unidadeAtual = DT.db.settings().unidade;
+    }
+    carregado = true;
+    desenhar();
+  }
+
   function desenhar() {
-    const ag = DT.ag.porCodigo(codigoAtual);
+    const ag = agAtual;
     if (!ag) { telaBusca(codigoAtual ? 'Link de acompanhamento inválido ou expirado.' : null); return; }
     const sit = situacao(ag);
     const et = etapas(ag);
@@ -162,7 +200,7 @@ DT.cliente = (function () {
         '<li>Venha no horário agendado até a área do <b>Drive Thru</b>.</li>' +
         '<li>Informe o número do pedido <b class="mono">' + esc(ag.pedido.numero) + '</b> ou mostre esta página.</li>' +
         '<li>Confira os produtos na doca; nossa equipe faz o carregamento.</li></ol>' +
-        '<p class="subtle">Código de acompanhamento: <b class="mono">' + DT.ag.codigo(ag) + '</b> · atualizado às ' + U.horaHM() + '</p></section>' : '')
+        '<p class="subtle">Código de acompanhamento: <b class="mono">' + DT.ag.codigo(ag) + '</b> · ' + (semConexao ? 'sem conexão, tentando de novo' : 'atualizado às ' + U.horaHM()) + '</p></section>' : '')
     );
     const b = root.querySelector('#cli-avisar');
     if (b) b.addEventListener('click', ativarAvisos);
@@ -175,15 +213,16 @@ DT.cliente = (function () {
   function render(container, codigo) {
     root = container;
     document.title = tituloBase;
-    if (codigo !== codigoAtual) { codigoAtual = codigo; ultimoPronto = null; }
+    if (codigo !== codigoAtual) { codigoAtual = codigo; ultimoPronto = null; agAtual = null; carregado = false; }
     clearInterval(timer);
-    desenhar();
-    if (codigoAtual) timer = setInterval(desenhar, 15000);
+    if (codigoAtual && nuvem() && !carregado) root.innerHTML = casca('<div class="cli-card"><div class="row"><span class="spinner"></span>Buscando o seu pedido…</div></div>');
+    atualizar();
+    if (codigoAtual) timer = setInterval(atualizar, nuvem() ? 10000 : 15000);
   }
   function sair() { clearInterval(timer); clearInterval(piscar); codigoAtual = null; }
 
   // outra aba (ex.: a Logística no mesmo computador) alterou os dados: atualiza na hora
-  window.addEventListener('storage', e => { if (codigoAtual && root && e.key && e.key.indexOf(DT.APP.storagePrefix) === 0) desenhar(); });
+  window.addEventListener('storage', e => { if (!nuvem() && codigoAtual && root && e.key && e.key.indexOf(DT.APP.storagePrefix) === 0) atualizar(); });
 
   return { render, sair, etapas, situacao };
 })();

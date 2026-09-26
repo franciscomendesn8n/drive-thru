@@ -58,6 +58,29 @@ dados de demonstração ou apagar os agendamentos e começar a operação real.
 | Funcionários | Admin | Cadastro com foto (recorte e compressão automáticos); lista usada nos campos de responsável |
 | Configurações | Admin | Horários, intervalo, vagas por janela, veículos simultâneos, regras de alerta, docas |
 
+## Banco de dados na nuvem (Supabase)
+
+Com `DT.SUPABASE` preenchido em `js/config.js`, o sistema usa o projeto Supabase **Drive Thru**
+(região São Paulo) e todos os aparelhos compartilham os mesmos dados, em tempo real.
+Abrindo o `index.html` direto do disco (file://), o sistema usa o **modo local** (dados no navegador).
+
+| Parte | Onde fica |
+|---|---|
+| Login da equipe | Supabase Auth — usuário `joao.silva` entra como `joao.silva@drivethru.app` |
+| Dados | Tabelas `dt_agendamentos`, `dt_usuarios`, `dt_funcionarios`, `dt_config`, `dt_auditoria` |
+| Segurança | RLS: só usuários ativos leem/gravam; configurações e funcionários só com permissão; auditoria só inclusão; anônimo não lê nenhuma tabela |
+| Página do cliente | Funções `dt_acompanhar(codigo)` e `dt_acompanhar_pedido(numero, final_telefone)` devolvem só dados não sensíveis |
+| Usuários e senhas | Função `dt-usuarios` (Edge Function) — só quem tem a permissão "usuarios.gerenciar" |
+| Tempo real | Supabase Realtime atualiza agenda, dashboard e filas sem recarregar |
+
+A chave em `js/config.js` é a chave **pública** do projeto (feita para ficar no navegador); a proteção
+está nas regras de acesso do banco. No primeiro acesso de um administrador, a base vazia recebe os
+dados de demonstração.
+
+**Antes de usar com clientes reais:** trocar as senhas de teste, desativar os usuários de demonstração,
+ativar a proteção contra senhas vazadas no Supabase (Authentication › Policies) e apagar os dados de
+demonstração (Configurações › Começar operação real).
+
 ## Página do cliente (acompanhamento)
 
 Após o agendamento, o comprovante mostra um **link** e um **QR Code** para o cliente
@@ -91,7 +114,9 @@ index.html
 css/style.css            tema claro/escuro, componentes, responsivo
 js/config.js             parâmetros padrão, status, permissões, menu, ERP_CONFIG
 js/utils.js              datas, formatação, hash de senha, CSV
-js/storage.js            camada de dados (hoje: localStorage) e sessão
+js/storage.js            camada de dados (memória + localStorage no modo local)
+js/nuvem.js              Supabase: login, carga, gravação e tempo real
+js/vendor/               bibliotecas incluídas (supabase-js e QR Code, licença MIT)
 js/erp.js                integração com ERP (hoje: base simulada)
 js/services.js           regras de negócio, alertas e indicadores
 js/seed.js               usuários iniciais e dados de demonstração

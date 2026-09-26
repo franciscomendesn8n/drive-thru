@@ -530,6 +530,15 @@ label.btn:has(+ input:focus-visible) { outline: 2px solid var(--signal); outline
 .legend { display: flex; flex-wrap: wrap; gap: 6px; }
 
 
+/* ------------------------------ Carregamento / status da nuvem ------------------------------ */
+.carregando { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: var(--nav); color: var(--nav-ink); padding: 24px 16px; }
+.carregando .brand-mark { color: #fff; }
+.nuvem-status { display: flex; align-items: center; gap: 6px; }
+.nuvem-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #9FB1C9; flex: none; }
+.nuvem-status[data-s="sincronizado"]::before { background: #4CC47F; }
+.nuvem-status[data-s="salvando"]::before { background: var(--signal); }
+.nuvem-status[data-s="erro"]::before { background: #F16A62; }
+
 /* ------------------------------ Página do cliente ------------------------------ */
 .cli { min-height: 100%; display: flex; flex-direction: column; background: var(--bg); }
 .cli-top { background: var(--nav); padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; display: flex; justify-content: center; }

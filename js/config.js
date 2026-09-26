@@ -161,3 +161,13 @@ DT.ERP_CONFIG = {
   baseUrl: 'https://erp.suaempresa.com.br/api',
   timeoutMs: 8000
 };
+
+/* Banco de dados na nuvem (Supabase).
+   A chave abaixo é a chave PÚBLICA do projeto (feita para ficar no navegador);
+   a proteção dos dados é feita pelas regras de acesso (RLS) no banco.
+   Deixe url vazia para usar o modo local (dados só no navegador). */
+DT.SUPABASE = {
+  url: 'https://yvwxqwkyttycopumgyet.supabase.co',
+  chave: 'sb_publishable_M8MqobrHcBeXgNMjcBKLxQ_2jpbCxLC',
+  dominioLogin: '@drivethru.app'   // login "joao.silva" entra como joao.silva@drivethru.app
+};

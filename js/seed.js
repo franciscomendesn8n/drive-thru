@@ -262,7 +262,7 @@ DT.seed = (function () {
     DT.ERP.limparCache();
     DT.db.set('settings', JSON.parse(JSON.stringify(DT.DEFAULT_SETTINGS)));
     DT.db.set('perfis', JSON.parse(JSON.stringify(DT.DEFAULT_PERFIS)));
-    DT.db.set('users', usuariosIniciais());
+    if (!DT.db.modoNuvem()) DT.db.set('users', usuariosIniciais());   // na nuvem, usuários ficam no servidor
     DT.db.set('funcionarios', funcionariosIniciais());
     const g = gerarAgendamentos(agora);
     DT.db.set('agendamentos', g.lista);

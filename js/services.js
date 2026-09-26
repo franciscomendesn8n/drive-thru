@@ -21,24 +21,33 @@ DT.auth = (function () {
     const u = usuarioAtual();
     return !!(u && u.permissoes.indexOf(perm) >= 0);
   }
+  /* Retorna sempre uma Promise ({ ok, erro }) para funcionar nos dois modos */
   function login(login, senha) {
+    if (DT.db.modoNuvem()) {
+      return DT.nuvem.login(login, senha).then(r => {
+        if (r.ok) DT.audit.registrar('Login no sistema', 'Sessão', String(login).trim().toLowerCase(), null, null);
+        return r;
+      });
+    }
     login = String(login || '').trim().toLowerCase();
     const u = DT.db.users().find(x => x.login.toLowerCase() === login);
     if (!u || u.senhaHash !== U.hashSenha(login, senha)) {
-      return { ok: false, erro: 'Usuário ou senha incorretos.' };
+      return Promise.resolve({ ok: false, erro: 'Usuário ou senha incorretos.' });
     }
-    if (!u.ativo) return { ok: false, erro: 'Usuário inativo. Procure o administrador.' };
+    if (!u.ativo) return Promise.resolve({ ok: false, erro: 'Usuário inativo. Procure o administrador.' });
     DT.session.set(u.id);
     const users = DT.db.users();
     const i = users.findIndex(x => x.id === u.id);
     users[i].ultimoAcesso = new Date().toISOString();
     DT.db.set('users', users);
     DT.audit.registrar('Login no sistema', 'Sessão', u.login, null, null);
-    return { ok: true };
+    return Promise.resolve({ ok: true });
   }
   function logout() {
     DT.audit.registrar('Saiu do sistema', 'Sessão', (usuarioAtual() || {}).login, null, null);
+    if (DT.db.modoNuvem()) return DT.nuvem.logout();
     DT.session.clear();
+    return Promise.resolve();
   }
   return { usuarioAtual, pode, login, logout };
 })();

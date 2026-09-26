@@ -55,11 +55,18 @@ DT.app = (function () {
         '</section>' +
       '</div>';
     const f = document.getElementById('form-login');
-    f.addEventListener('submit', e => {
+    f.addEventListener('submit', async e => {
       e.preventDefault();
-      const r = DT.auth.login(f.username.value, f.password.value);
-      if (!r.ok) { telaLogin(r.erro); document.getElementById('lg-user').value = f.username.value; return; }
-      location.hash = '';
+      const btn = f.querySelector('button[type=submit]');
+      const usuario = f.username.value;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>' + (DT.db.modoNuvem() ? 'Conectando ao servidor…' : 'Entrando…');
+      let r;
+      try { r = await DT.auth.login(usuario, f.password.value); }
+      catch (err) { r = { ok: false, erro: 'Falha ao entrar: ' + (err.message || err) }; }
+      if (!r.ok) { telaLogin(r.erro); document.getElementById('lg-user').value = usuario; return; }
+      await prepararDemonstracao();
+      history.replaceState(null, '', location.pathname + location.search);
       iniciar();
     });
     root.querySelectorAll('.demo-user').forEach(b => b.addEventListener('click', () => {
@@ -97,7 +104,8 @@ DT.app = (function () {
         '<aside class="sidebar" id="sidebar" aria-label="Menu principal">' +
           '<div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div>' +
           '<nav id="nav"></nav>' +
-          '<div class="sidebar-foot"><span>' + esc(DT.db.settings().unidade) + '</span><span>v' + DT.APP.versao + (DT.db.estaPersistindo() ? '' : ' · dados só nesta sessão') + '</span></div>' +
+          '<div class="sidebar-foot"><span>' + esc(DT.db.settings().unidade) + '</span><span>v' + DT.APP.versao + (DT.db.estaPersistindo() ? '' : ' · dados só nesta sessão') + '</span>' +
+            (DT.db.modoNuvem() ? '<span id="nuvem-status" class="nuvem-status" data-s="' + DT.nuvem.statusAtual() + '">Nuvem: sincronizado</span>' : '<span class="nuvem-status" data-s="local">Modo local (dados neste navegador)</span>') + '</div>' +
         '</aside>' +
         '<div class="main">' +
           '<header class="topbar">' +
@@ -113,7 +121,12 @@ DT.app = (function () {
           '<main class="content" id="view"></main>' +
         '</div>' +
       '</div>';
-    document.getElementById('btn-sair').addEventListener('click', () => { DT.auth.logout(); location.hash = ''; parar(); telaLogin(); });
+    document.getElementById('btn-sair').addEventListener('click', async () => {
+      parar();
+      try { await DT.auth.logout(); } catch (e) { /* segue para o login */ }
+      history.replaceState(null, '', location.pathname + location.search);
+      telaLogin();
+    });
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-menu').addEventListener('click', () => document.getElementById('shell').classList.toggle('nav-open'));
     document.getElementById('shell').addEventListener('click', e => {
@@ -215,20 +228,73 @@ DT.app = (function () {
     timerRefresh = setInterval(atualizarAoVivo, 30000);
   }
 
-  function boot() {
+  function telaCarregando(msg) {
+    document.getElementById('app').innerHTML = '<div class="carregando"><div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div>' +
+      '<div class="row" style="gap:10px"><span class="spinner"></span><span>' + esc(msg) + '</span></div></div>';
+  }
+
+  /* Base vazia na nuvem: o primeiro administrador a entrar carrega a demonstração */
+  async function prepararDemonstracao() {
+    if (!DT.db.modoNuvem()) return;
+    const u = DT.auth.usuarioAtual();
+    if (DT.db.meta().seeded || !u || !DT.auth.pode('config.alterar')) return;
+    telaCarregando('Primeiro acesso: preparando dados de demonstração…');
+    DT.seed.executar(true);
+    await DT.nuvem.enviar();
+    ui.toast('Dados de demonstração carregados no servidor.');
+  }
+
+  async function boot() {
     aplicarTema();
-    DT.seed.executar(false);
+    if (DT.db.modoNuvem()) {
+      DT.nuvem.aoMudar(atualizarPorMudanca);
+      const cod = rotaCliente();
+      if (cod === null) telaCarregando('Conectando ao servidor…');
+      try {
+        await DT.nuvem.iniciar();
+        if (cod === null && DT.nuvem.temSessao()) {
+          const r = await DT.nuvem.prepararSessao();
+          if (!r.ok) ui.toast(r.erro, 'err');
+          else await prepararDemonstracao();
+        }
+      } catch (e) {
+        console.error(e);
+        if (cod === null) { telaLogin('Não foi possível conectar ao servidor. Verifique a internet e tente novamente.'); ligarEventos(); return; }
+      }
+    } else {
+      DT.seed.executar(false);
+    }
+    ligarEventos();
+    iniciar();
+  }
+
+  /* Alguém alterou dados em outro aparelho: atualiza menu e telas "ao vivo" */
+  function atualizarPorMudanca() {
+    if (!document.getElementById('view') || !DT.auth.usuarioAtual()) return;
+    atualizarAoVivo();
+  }
+
+  let eventosLigados = false;
+  function ligarEventos() {
+    if (eventosLigados) return;
+    eventosLigados = true;
     window.addEventListener('hashchange', () => {
       const cod = rotaCliente();
       if (cod !== null) { mostrarCliente(cod); return; }
-      if (!document.getElementById('view')) { iniciar(); return; }  // saiu da página do cliente
+      if (!document.getElementById('view')) {  // saiu da página do cliente
+        if (DT.db.modoNuvem() && DT.nuvem.temSessao() && !DT.db.users().length) {
+          telaCarregando('Carregando dados…');
+          DT.nuvem.prepararSessao().then(iniciar, iniciar);
+          return;
+        }
+        iniciar(); return;
+      }
       if (DT.auth.usuarioAtual()) render();
     });
     document.addEventListener('click', e => {
       const t = e.target.closest('[data-goto-pedido]');
       if (t) { e.preventDefault(); e.stopPropagation(); ir('pedido', t.dataset.gotoPedido); }
     });
-    iniciar();
   }
 
   return { boot, ir, render, montarMenu, rotaAtual: () => rotaAtual };

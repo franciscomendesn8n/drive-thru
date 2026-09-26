@@ -25,7 +25,9 @@ DT.app = (function () {
   }
 
   /* ------------------------------ Login ------------------------------ */
+  let avisoLogin = null;   // motivo de ter voltado ao login (ex.: sessão encerrada no servidor)
   function telaLogin(erro) {
+    erro = erro || avisoLogin;
     const root = document.getElementById('app');
     const passos = [['Venda', 'Comercial'], ['Agendamento', 'Comercial'], ['Preparação', 'Logística'], ['Conferência', 'Logística'],
       ['Faturamento', 'Logística'], ['Chegada', 'Cliente'], ['Carregamento', 'Logística'], ['Entrega', 'Finalização']];
@@ -64,7 +66,8 @@ DT.app = (function () {
       let r;
       try { r = await DT.auth.login(usuario, f.password.value); }
       catch (err) { r = { ok: false, erro: 'Falha ao entrar: ' + (err.message || err) }; }
-      if (!r.ok) { telaLogin(r.erro); document.getElementById('lg-user').value = usuario; return; }
+      if (!r.ok) { avisoLogin = null; telaLogin(r.erro); document.getElementById('lg-user').value = usuario; return; }
+      avisoLogin = null;
       await prepararDemonstracao();
       history.replaceState(null, '', location.pathname + location.search);
       iniciar();
@@ -293,7 +296,8 @@ DT.app = (function () {
         ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta'].forEach(k => DT.db.memoria.gravar(k, null));
         document.querySelectorAll('.modal-back').forEach(m => m.remove());
         history.replaceState(null, '', location.pathname + location.search);
-        telaLogin('Sua sessão foi encerrada. Isso acontece quando a senha é trocada, o usuário é desativado ou o acesso expira. Entre novamente.');
+        avisoLogin = 'Sua sessão foi encerrada. Isso acontece quando a senha é trocada, o usuário é desativado ou o acesso expira. Entre novamente.';
+        telaLogin();
       });
       const cod = rotaCliente();
       if (cod === null) telaCarregando('Conectando ao servidor…');
@@ -301,7 +305,7 @@ DT.app = (function () {
         await DT.nuvem.iniciar();
         if (cod === null && DT.nuvem.temSessao()) {
           const r = await DT.nuvem.prepararSessao();
-          if (!r.ok) ui.toast(r.erro, 'err');
+          if (!r.ok) avisoLogin = 'Sua sessão foi encerrada. Isso acontece quando a senha é trocada, o usuário é desativado ou o acesso expira. Entre novamente.';
           else await prepararDemonstracao();
         }
       } catch (e) {

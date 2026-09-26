@@ -160,6 +160,19 @@ DT.util = (function () {
     };
   }
 
-  return { pad, dataISO, horaHM, toDate, minutos, hmDeMinutos, addDias, fmtData, fmtDataHora, fmtHora, diaSemana,
+  /* Valida a senha pela regra de DT.SENHA. Retorna a mensagem de erro ou null. */
+  function validarSenha(senha) {
+    const r = DT.SENHA || { minimo: 8, simbolos: '' };
+    const falta = [];
+    senha = String(senha || '');
+    if (senha.length < r.minimo) falta.push('pelo menos ' + r.minimo + ' caracteres');
+    if (!/[a-z]/.test(senha)) falta.push('uma letra minúscula');
+    if (!/[A-Z]/.test(senha)) falta.push('uma letra maiúscula');
+    if (!/[0-9]/.test(senha)) falta.push('um número');
+    if (!senha.split('').some(ch => r.simbolos.indexOf(ch) >= 0)) falta.push('um símbolo (ex.: ! @ # $ %)');
+    return falta.length ? 'A senha precisa ter ' + falta.join(', ') + '.' : null;
+  }
+
+  return { validarSenha, pad, dataISO, horaHM, toDate, minutos, hmDeMinutos, addDias, fmtData, fmtDataHora, fmtHora, diaSemana,
     fmtMoeda, difMin, fmtDuracao, uid, esc, media, sha256, hashSenha, toCSV, rng };
 })();

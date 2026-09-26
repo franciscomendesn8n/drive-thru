@@ -8,7 +8,7 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.2.0',
+  versao: '0.2.1',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10
 };
@@ -170,4 +170,11 @@ DT.SUPABASE = {
   url: 'https://yvwxqwkyttycopumgyet.supabase.co',
   chave: 'sb_publishable_M8MqobrHcBeXgNMjcBKLxQ_2jpbCxLC',
   dominioLogin: '@drivethru.app'   // login "joao.silva" entra como joao.silva@drivethru.app
+};
+
+/* Regra de senha forte — manter igual à configuração do Supabase
+   (Authentication › Sign In / Providers › Email › Password requirements). */
+DT.SENHA = {
+  minimo: 8,
+  simbolos: "!@#$%^&*()_+-=[]{};'\\:\"|<>?,./`~"
 };

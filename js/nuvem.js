@@ -258,6 +258,10 @@ DT.nuvem = (function () {
     if (error) {
       if (/fetch|network/i.test(error.message || '')) return { ok: false, erro: 'Não foi possível conectar ao servidor. Verifique a internet.' };
       if (/banned/i.test(error.message || '')) return { ok: false, erro: 'Usuário inativo. Procure o administrador.' };
+      // Senha correta, mas fora das regras de segurança configuradas no Supabase
+      if (error.code === 'weak_password' || error.name === 'AuthWeakPasswordError' || /weak.?password/i.test(error.message || '')) {
+        return { ok: false, erro: 'Sua senha não atende às novas regras de segurança. Peça ao administrador para redefini-la.' };
+      }
       return { ok: false, erro: 'Usuário ou senha incorretos.' };
     }
     sessao = data.session;
@@ -268,7 +272,30 @@ DT.nuvem = (function () {
       return { ok: false, erro: 'Entrou, mas não foi possível carregar os dados: ' + (e.message || e) };
     }
     sb.rpc('dt_registrar_acesso').then(() => {}, () => {});
-    return { ok: true };
+    // O Supabase deixa entrar, mas avisa quando a senha está fora das regras de segurança
+    return { ok: true, senhaFraca: !!(data && data.weakPassword) };
+  }
+
+  /* Troca da senha do próprio usuário (o Supabase aplica as regras de segurança do projeto) */
+  async function trocarMinhaSenha(atual, nova) {
+    // confirma a senha atual antes de trocar (evita troca num computador que ficou aberto)
+    const email = sessao && sessao.user ? sessao.user.email : null;
+    if (!email) return { ok: false, erro: 'Sessão encerrada. Entre novamente.' };
+    const conf = await sb.auth.signInWithPassword({ email: email, password: atual });
+    if (conf.error) {
+      if (/fetch|network/i.test(conf.error.message || '')) return { ok: false, erro: 'Não foi possível conectar ao servidor. Verifique a internet.' };
+      return { ok: false, erro: 'A senha atual está incorreta.' };
+    }
+    sessao = conf.data.session;
+    if (atual === nova) return { ok: false, erro: 'A nova senha precisa ser diferente da atual.' };
+    const { error } = await sb.auth.updateUser({ password: nova });
+    if (!error) return { ok: true };
+    const msg = error.message || '';
+    if (error.code === 'same_password' || /different from the old/i.test(msg)) return { ok: false, erro: 'A nova senha precisa ser diferente da atual.' };
+    if (error.code === 'weak_password' || error.name === 'AuthWeakPasswordError') return { ok: false, erro: 'O servidor recusou a senha por ser fraca ou já ter aparecido em vazamentos. Escolha outra.' };
+    if (/reauthent|nonce/i.test(msg)) return { ok: false, erro: 'Por segurança, saia e entre de novo antes de trocar a senha.' };
+    if (/fetch|network/i.test(msg)) return { ok: false, erro: 'Não foi possível conectar ao servidor. Verifique a internet.' };
+    return { ok: false, erro: 'Não foi possível trocar a senha: ' + msg };
   }
   async function logout() {
     try { await enviar(); } catch (e) { /* ignora */ }
@@ -309,5 +336,5 @@ DT.nuvem = (function () {
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
     sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
-    gerenciarUsuario, acompanhar, acompanharPorPedido };
+    gerenciarUsuario, acompanhar, acompanharPorPedido, trocarMinhaSenha };
 })();

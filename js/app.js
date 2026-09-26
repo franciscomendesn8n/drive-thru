@@ -68,11 +68,47 @@ DT.app = (function () {
       await prepararDemonstracao();
       history.replaceState(null, '', location.pathname + location.search);
       iniciar();
+      if (r.senhaFraca) setTimeout(() => abrirTrocaSenha(true), 300);
     });
     root.querySelectorAll('.demo-user').forEach(b => b.addEventListener('click', () => {
       f.username.value = b.dataset.l; f.password.value = b.dataset.s; f.querySelector('button[type=submit]').focus();
     }));
     setTimeout(() => { const i = document.getElementById('lg-user'); if (i && !i.value) i.focus(); }, 30);
+  }
+
+  /* ------------------------------ Troca de senha ------------------------------ */
+  function abrirTrocaSenha(aviso) {
+    const r = DT.SENHA;
+    ui.modal({
+      title: 'Trocar minha senha',
+      body: (aviso ? ui.notice('warn', '<b>Sua senha não atende às regras de segurança.</b> Troque agora para continuar protegido.') : '') +
+        '<div class="field"><label for="ts-atual">Senha atual</label><input id="ts-atual" type="password" class="input" autocomplete="current-password"></div>' +
+        '<div class="field"><label for="ts-nova">Nova senha</label><input id="ts-nova" type="password" class="input" autocomplete="new-password">' +
+          '<span class="hint">Mínimo de ' + r.minimo + ' caracteres, com letra minúscula, maiúscula, número e símbolo (ex.: ! @ # $ %). Não use a mesma senha de outros sites.</span></div>' +
+        '<div class="field"><label for="ts-conf">Repita a nova senha</label><input id="ts-conf" type="password" class="input" autocomplete="new-password"></div>' +
+        '<div id="ts-erro"></div>',
+      actions: [
+        { label: aviso ? 'Lembrar depois' : 'Voltar', cls: 'ghost' },
+        { label: 'Trocar senha', cls: 'primary', icon: 'key', onClick: root => {
+          const atual = root.querySelector('#ts-atual').value, nova = root.querySelector('#ts-nova').value, conf = root.querySelector('#ts-conf').value;
+          const box = root.querySelector('#ts-erro');
+          const erro = !atual ? 'Informe a senha atual.' : nova !== conf ? 'A confirmação não é igual à nova senha.' : U.validarSenha(nova);
+          if (erro) { box.innerHTML = ui.notice('crit', esc(erro)); return false; }
+          const btn = root.querySelector('.modal-foot .btn.primary');
+          btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Trocando…';
+          DT.auth.trocarMinhaSenha(atual, nova).then(res => {
+            if (!res.ok) {
+              box.innerHTML = ui.notice('crit', esc(res.erro));
+              btn.disabled = false; btn.innerHTML = ui.icon('key') + 'Trocar senha';
+              return;
+            }
+            document.querySelectorAll('.modal-back').forEach(m => m.remove());
+            ui.toast('Senha trocada com sucesso.');
+          });
+          return false;
+        }}
+      ]
+    });
   }
 
   /* ------------------------------ Layout ------------------------------ */
@@ -115,6 +151,7 @@ DT.app = (function () {
               '<div class="clock"><b id="clk-h"></b><span id="clk-d"></span></div>' +
               '<button type="button" class="icon-btn" id="btn-tema" aria-label="Alternar tema claro/escuro" title="Tema claro/escuro">' + ui.icon('moon') + '</button>' +
               '<div class="user-chip"><div class="avatar">' + esc(ui.iniciais(u.nome)) + '</div><div class="who"><b>' + esc(u.nome) + '</b><span>' + esc(u.perfilNome) + '</span></div>' +
+                '<button type="button" class="icon-btn" id="btn-senha" aria-label="Trocar minha senha" title="Trocar minha senha" style="width:32px;height:32px;border:0;background:none">' + ui.icon('key') + '</button>' +
                 '<button type="button" class="icon-btn" id="btn-sair" aria-label="Sair" title="Sair" style="width:32px;height:32px;border:0;background:none">' + ui.icon('logout') + '</button></div>' +
             '</div>' +
           '</header>' +
@@ -128,9 +165,11 @@ DT.app = (function () {
       telaLogin();
     });
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
+    document.getElementById('btn-senha').addEventListener('click', () => abrirTrocaSenha(false));
     document.getElementById('btn-menu').addEventListener('click', () => document.getElementById('shell').classList.toggle('nav-open'));
     document.getElementById('shell').addEventListener('click', e => {
       const sh = document.getElementById('shell');
+      if (!sh) return;   // a tela já foi trocada (ex.: saiu do sistema)
       if (sh.classList.contains('nav-open') && !e.target.closest('.sidebar') && !e.target.closest('#btn-menu')) sh.classList.remove('nav-open');
     });
     relogio();

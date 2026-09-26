@@ -43,13 +43,29 @@ DT.auth = (function () {
     DT.audit.registrar('Login no sistema', 'Sessão', u.login, null, null);
     return Promise.resolve({ ok: true });
   }
+  /* Troca da senha do próprio usuário, nos dois modos */
+  function trocarMinhaSenha(atual, nova) {
+    const erro = U.validarSenha(nova);
+    if (erro) return Promise.resolve({ ok: false, erro: erro });
+    const u = usuarioAtual();
+    if (!u) return Promise.resolve({ ok: false, erro: 'Sessão encerrada. Entre novamente.' });
+    const auditar = r => { if (r.ok) DT.audit.registrar('Trocou a própria senha', 'Usuário', u.login, null, null); return r; };
+    if (DT.db.modoNuvem()) return DT.nuvem.trocarMinhaSenha(atual, nova).then(auditar);
+    const users = DT.db.users();
+    const i = users.findIndex(x => x.id === u.id);
+    if (users[i].senhaHash !== U.hashSenha(u.login, atual)) return Promise.resolve({ ok: false, erro: 'A senha atual está incorreta.' });
+    if (atual === nova) return Promise.resolve({ ok: false, erro: 'A nova senha precisa ser diferente da atual.' });
+    users[i].senhaHash = U.hashSenha(u.login, nova);
+    DT.db.set('users', users);
+    return Promise.resolve(auditar({ ok: true }));
+  }
   function logout() {
     DT.audit.registrar('Saiu do sistema', 'Sessão', (usuarioAtual() || {}).login, null, null);
     if (DT.db.modoNuvem()) return DT.nuvem.logout();
     DT.session.clear();
     return Promise.resolve();
   }
-  return { usuarioAtual, pode, login, logout };
+  return { usuarioAtual, pode, login, logout, trocarMinhaSenha };
 })();
 
 /* ------------------------------ Auditoria ---------------------------- */

@@ -77,8 +77,17 @@ A chave em `js/config.js` é a chave **pública** do projeto (feita para ficar n
 está nas regras de acesso do banco. No primeiro acesso de um administrador, a base vazia recebe os
 dados de demonstração.
 
-**Antes de usar com clientes reais:** trocar as senhas de teste, desativar os usuários de demonstração,
-ativar a proteção contra senhas vazadas no Supabase (Authentication › Policies) e apagar os dados de
+### Senhas
+
+- Regra de senha forte (em `DT.SENHA`, na tela e na função do servidor): mínimo de 8 caracteres, com
+  letra minúscula, maiúscula, número e símbolo.
+- Cada usuário troca a própria senha pelo ícone de chave ao lado do nome (pede a senha atual).
+- Se o Supabase avisar que a senha está fora das regras, o sistema pede a troca logo após o login.
+- No Supabase, configure a mesma regra em Authentication › Sign In / Providers › Email.
+  A "proteção contra senhas vazadas" só existe a partir do plano Pro.
+
+**Antes de usar com clientes reais:** trocar as senhas de teste (primeiro a do administrador),
+configurar as regras de senha no Supabase, desativar os usuários de demonstração e apagar os dados de
 demonstração (Configurações › Começar operação real).
 
 ## Página do cliente (acompanhamento)

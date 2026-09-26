@@ -47,7 +47,7 @@ DT.views.usuarios = (function () {
         '<div class="field"><label for="uf-login">Usuário (login)</label><input id="uf-login" class="input mono" value="' + esc(u ? u.login : '') + '"' + (u ? ' readonly' : '') + ' placeholder="nome.sobrenome"></div>' +
         '<div class="field"><label for="uf-email">E-mail</label><input id="uf-email" type="email" class="input" value="' + esc(u ? u.email || '' : '') + '"></div>' +
         '<div class="field"><label for="uf-perfil">Perfil</label><select id="uf-perfil" class="select"' + (u && u.id === eu.id ? ' disabled' : '') + '>' + ui.options(Object.keys(perfisDef).map(k => ({ value: k, label: perfisDef[k].nome })), u ? u.perfil : 'comercial') + '</select></div>' +
-        '<div class="field"><label for="uf-senha">' + (u ? 'Nova senha <span class="subtle">(deixe vazio para manter)</span>' : 'Senha inicial') + '</label><input id="uf-senha" type="password" class="input" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>' +
+        '<div class="field"><label for="uf-senha">' + (u ? 'Nova senha <span class="subtle">(deixe vazio para manter)</span>' : 'Senha inicial') + '</label><input id="uf-senha" type="password" class="input" autocomplete="new-password" placeholder="mín. ' + DT.SENHA.minimo + ' caracteres, Aa, 1 e símbolo"><span class="hint">Mínimo de ' + DT.SENHA.minimo + ' caracteres, com letra minúscula, maiúscula, número e símbolo.</span></div>' +
         '<div class="field"><span class="label">Situação</span><label class="check" style="min-height:40px"><input type="checkbox" id="uf-ativo"' + (!u || u.ativo ? ' checked' : '') + (u && u.id === eu.id ? ' disabled' : '') + '> Usuário ativo</label></div>' +
         '</div><p class="subtle">Usuários não são excluídos para preservar o histórico; desative quando necessário.</p>',
       actions: [
@@ -58,7 +58,10 @@ DT.views.usuarios = (function () {
           if (!nome || !login) { ui.toast('Informe nome e usuário.', 'warn'); return false; }
           if (!/^[a-z0-9._-]{3,}$/.test(login)) { ui.toast('O usuário deve ter ao menos 3 caracteres (letras, números, ponto, hífen).', 'warn'); return false; }
           if (!u && lista.some(x => x.login === login)) { ui.toast('Já existe um usuário com esse login.', 'warn'); return false; }
-          if ((!u || senha) && senha.length < 6) { ui.toast('A senha deve ter pelo menos 6 caracteres.', 'warn'); return false; }
+          if (!u || senha) {
+            const erroSenha = U.validarSenha(senha);
+            if (erroSenha) { ui.toast(erroSenha, 'warn'); return false; }
+          }
           const dados = { nome: nome, email: v('#uf-email'), perfil: root.querySelector('#uf-perfil').value, ativo: root.querySelector('#uf-ativo').checked };
           if (DT.db.modoNuvem()) {
             // Na nuvem, usuários e senhas são gravados pela função segura do servidor

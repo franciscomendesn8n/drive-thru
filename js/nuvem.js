@@ -22,6 +22,14 @@ DT.nuvem = (function () {
   const ids = { agendamentos: new Set(), auditoria: new Set(), funcionarios: new Set() };
   let timerFila = null, timerAviso = null;
   const ouvintes = [];
+  const sessaoEncerradaOuvintes = [];
+  let saindo = false;
+  function aoEncerrarSessao(fn) { sessaoEncerradaOuvintes.push(fn); }
+  /* O servidor recusou a sessão: encerra localmente (dispara o aviso de sessão encerrada) */
+  async function sessaoInvalida() {
+    if (canal) { try { sb.removeChannel(canal); } catch (e) { /* ignora */ } canal = null; }
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* ignora */ }
+  }
 
   const ativa = !!(cfg.url && cfg.chave && window.supabase && typeof window.supabase.createClient === 'function' && /^https?:$/.test(location.protocol));
 
@@ -234,11 +242,26 @@ DT.nuvem = (function () {
     sessao = data && data.session ? data.session : null;
     sb.auth.onAuthStateChange((evento, s) => {
       sessao = s;
-      if (evento === 'SIGNED_OUT') setStatus('desconectado');
+      if (evento === 'SIGNED_OUT') {
+        setStatus('desconectado');
+        // Encerrada fora do botão "Sair" (senha trocada em outro aparelho, usuário desativado, token revogado)
+        if (!saindo) setTimeout(() => sessaoEncerradaOuvintes.forEach(fn => { try { fn(); } catch (e) { console.warn(e); } }), 0);
+      }
     });
     return true;
   }
   function temSessao() { return !!sessao; }
+
+  /* Confere no servidor se a sessão ainda vale (ex.: senha trocada em outro aparelho) */
+  async function conferirSessao() {
+    if (!sessao || saindo) return;
+    try {
+      const { error } = await sb.auth.getUser();
+      if (error && (error.status === 401 || error.status === 403 || /session.*not.*found|missing|invalid/i.test(error.message || ''))) await sessaoInvalida();
+    } catch (e) { /* sem internet: tenta de novo depois */ }
+  }
+  setInterval(conferirSessao, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') conferirSessao(); });
   function userId() { return sessao && sessao.user ? sessao.user.id : null; }
 
   async function prepararSessao() {
@@ -298,9 +321,11 @@ DT.nuvem = (function () {
     return { ok: false, erro: 'Não foi possível trocar a senha: ' + msg };
   }
   async function logout() {
+    saindo = true;
     try { await enviar(); } catch (e) { /* ignora */ }
     if (canal) { sb.removeChannel(canal); canal = null; }
-    await sb.auth.signOut();
+    try { await sb.auth.signOut(); } catch (e) { try { await sb.auth.signOut({ scope: 'local' }); } catch (e2) { /* ignora */ } }
+    saindo = false;
     sessao = null;
     ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta'].forEach(k => DT.db.memoria.gravar(k, null));
   }
@@ -310,7 +335,9 @@ DT.nuvem = (function () {
     const { data, error } = await sb.functions.invoke('dt-usuarios', { body: dados });
     if (error) {
       let msg = null;
+      const status = error.context && error.context.status;
       try { const j = await error.context.json(); msg = j && j.erro; } catch (e) { /* sem corpo */ }
+      if (status === 401) { await sessaoInvalida(); msg = 'Sua sessão foi encerrada. Entre novamente.'; }
       throw new Error(msg || 'Falha ao falar com o servidor.');
     }
     if (data && data.erro) throw new Error(data.erro);
@@ -336,5 +363,5 @@ DT.nuvem = (function () {
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
     sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
-    gerenciarUsuario, acompanhar, acompanharPorPedido, trocarMinhaSenha };
+    gerenciarUsuario, acompanhar, acompanharPorPedido, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
 })();

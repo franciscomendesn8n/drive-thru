@@ -287,6 +287,14 @@ DT.app = (function () {
     aplicarTema();
     if (DT.db.modoNuvem()) {
       DT.nuvem.aoMudar(atualizarPorMudanca);
+      DT.nuvem.aoEncerrarSessao(() => {
+        if (rotaCliente() !== null) return;          // página do cliente não depende de login
+        parar();
+        ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta'].forEach(k => DT.db.memoria.gravar(k, null));
+        document.querySelectorAll('.modal-back').forEach(m => m.remove());
+        history.replaceState(null, '', location.pathname + location.search);
+        telaLogin('Sua sessão foi encerrada. Isso acontece quando a senha é trocada, o usuário é desativado ou o acesso expira. Entre novamente.');
+      });
       const cod = rotaCliente();
       if (cod === null) telaCarregando('Conectando ao servidor…');
       try {

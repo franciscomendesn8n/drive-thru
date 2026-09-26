@@ -199,14 +199,12 @@ DT.nuvem = (function () {
       if (i >= 0) lista.splice(i, 1);
       if (ids[col]) ids[col].delete(idRemovido);
     } else if (novo) {
-      // não sobrescreve uma alteração local ainda não enviada
+      // não sobrescreve uma alteração local ainda não enviada ao servidor.
+      // (Não comparamos horários: cada aparelho tem o próprio relógio e eles podem divergir.)
       if (fila.has(TAB[col] + ':' + novo.id)) return;
       const i = lista.findIndex(x => x.id === novo.id);
-      if (i >= 0) {
-        const atual = lista[i];
-        if (atual && atual.alteradoEm && novo.alteradoEm && atual.alteradoEm > novo.alteradoEm) return;
-        lista[i] = novo;
-      } else lista.push(novo);
+      if (i >= 0) lista[i] = novo;
+      else lista.push(novo);
       if (ids[col]) ids[col].add(novo.id);
     }
     mem.gravar(col, lista);
@@ -220,8 +218,13 @@ DT.nuvem = (function () {
     on(TAB.funcionarios, p => { if (p.eventType === 'DELETE') aplicarLista('funcionarios', null, p.old && p.old.id); else aplicarLista('funcionarios', p.new.doc); avisar(); });
     on(TAB.config, p => { if (p.new && p.new.chave && !fila.has(TAB.config + ':' + p.new.chave)) { DT.db.memoria.gravar(p.new.chave, p.new.valor); avisar(); } });
     on(TAB.usuarios, () => { recarregarUsuarios().then(avisar).catch(() => {}); });
-    canal.subscribe(st => { if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') setStatus('erro'); });
+    canal.subscribe(st => {
+      estadoCanal = st;
+      if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') setStatus('erro');
+    });
   }
+  let estadoCanal = 'fechado';
+  function tempoReal() { return estadoCanal; }
 
   /* ---------------------------- login ---------------------------- */
   async function iniciar() {
@@ -305,6 +308,6 @@ DT.nuvem = (function () {
   });
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
-    sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus,
+    sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
     gerenciarUsuario, acompanhar, acompanharPorPedido };
 })();

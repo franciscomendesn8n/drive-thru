@@ -48,11 +48,13 @@ DT.app = (function () {
               '<div class="field"><label for="lg-pass">Senha</label><input id="lg-pass" class="input" type="password" name="password" autocomplete="current-password" placeholder="Digite sua senha" required></div>' +
               '<button class="btn primary lg block" type="submit">' + ui.icon('lock') + 'Entrar</button>' +
             '</form>' +
+            // Usuários de teste só aparecem no modo local (demonstração). Na versão online as senhas não são exibidas.
+            (DT.db.modoNuvem() ? '' :
             '<div class="demo-users"><div class="row between"><span class="eyebrow">Usuários de teste</span><span class="subtle">clique para preencher</span></div>' +
               '<div class="demo-grid">' + DT.seed.USUARIOS.map(u =>
                 '<button type="button" class="demo-user" data-l="' + esc(u.login) + '" data-s="' + esc(u.senha) + '"><b>' + esc(DT.DEFAULT_PERFIS[u.perfil].nome) + ' · ' + esc(u.nome.split(' ')[0]) + '</b><span>' + esc(u.login) + ' / ' + esc(u.senha) + '</span></button>').join('') +
-              '</div></div>' +
-            '<p class="subtle">Versão ' + DT.APP.versao + ' · protótipo com dados de demonstração</p>' +
+              '</div></div>') +
+            '<p class="subtle">Versão ' + DT.APP.versao + (DT.db.modoNuvem() ? ' · esqueceu a senha? Fale com o administrador do sistema.' : ' · modo local, com dados de demonstração') + '</p>' +
           '</div>' +
         '</section>' +
       '</div>';

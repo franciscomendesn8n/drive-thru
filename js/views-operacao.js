@@ -39,7 +39,48 @@ DT.opUI = (function () {
     el.querySelectorAll('[data-sel]').forEach(b => b.addEventListener('click', () => aoSelecionar(b.dataset.sel)));
   }
 
-  return { stepsHTML, queueItem, resumoPedido, bindQueue };
+  /* ---------- Filtro de data das telas de operação ----------
+     view.data = null significa "hoje" (acompanha a virada do dia). */
+  function dataDe(view) { return view.data || U.dataISO(); }
+  function filtroDataHTML(view, pre, stats) {
+    const d = dataDe(view), hoje = U.dataISO();
+    return '<section class="card"><div class="card-body"><div class="agenda-toolbar">' +
+      '<div class="row" style="gap:6px">' +
+        '<button type="button" class="icon-btn" data-fd="-1" aria-label="Dia anterior" title="Dia anterior">' + ui.icon('back') + '</button>' +
+        '<div class="field"><label class="sr-only" for="' + pre + '-data">Data</label><input type="date" id="' + pre + '-data" class="input" value="' + d + '" style="width:170px"></div>' +
+        '<button type="button" class="icon-btn" data-fd="1" aria-label="Próximo dia" title="Próximo dia">' + ui.icon('arrow') + '</button>' +
+        (d !== hoje ? '<button type="button" class="btn ghost sm" data-fd="hoje">Hoje</button>' : '') +
+      '</div>' +
+      '<div class="stat-strip">' +
+        '<div class="stat"><span>' + (d === hoje ? 'Hoje · ' : '') + U.diaSemana(d) + '</span><b>' + U.fmtData(d) + '</b></div>' +
+        (stats || []).map(x => '<div class="stat"><span>' + esc(x[0]) + '</span><b>' + x[1] + '</b></div>').join('') +
+      '</div>' +
+    '</div></div></section>';
+  }
+  function ligarFiltroData(el, view, pre, redesenhar) {
+    const definir = d => { view.data = (!d || d === U.dataISO()) ? null : d; view.sel = null; if ('finalizado' in view) view.finalizado = null; redesenhar(); };
+    const inp = el.querySelector('#' + pre + '-data');
+    if (inp) inp.addEventListener('change', e => definir(e.target.value));
+    el.querySelectorAll('[data-fd]').forEach(b => b.addEventListener('click', () => {
+      const v = b.dataset.fd;
+      definir(v === 'hoje' ? null : /^\d{4}-/.test(v) ? v : U.addDias(dataDe(view), Number(v)));
+    }));
+  }
+  /* Aviso de itens em andamento com agendamento em outra data (não somem por causa do filtro) */
+  function avisoOutrasDatas(lista, d, texto) {
+    const outras = lista.filter(a => a.data !== d);
+    if (!outras.length) return '';
+    const datas = Array.from(new Set(outras.map(a => a.data))).sort();
+    return ui.notice('warn', '<b>' + outras.length + ' ' + texto + '</b> com agendamento em outra data. ' +
+      datas.slice(0, 4).map(x => '<button type="button" class="btn ghost sm" data-fd="' + x + '">Ver ' + U.fmtData(x).slice(0, 5) + '</button>').join(' '));
+  }
+  /* Ao abrir a tela: com um agendamento indicado, vai para a data dele; sem, começa em hoje */
+  function dataAoAbrir(view, param) {
+    const ag = param ? DT.db.agendamentoPorId(param) : null;
+    view.data = ag && ag.data !== U.dataISO() ? ag.data : null;
+  }
+
+  return { stepsHTML, queueItem, resumoPedido, bindQueue, dataDe, filtroDataHTML, ligarFiltroData, avisoOutrasDatas, dataAoAbrir };
 })();
 
 /* ================================ PREPARAÇÃO ================================ */
@@ -143,30 +184,42 @@ DT.views.checkin = (function () {
   const view = { titulo: 'Check-in', eyebrow: 'Logística · Chegada do cliente', aoVivo: true, sel: null, busca: '' };
   let el, timer;
 
-  view.render = function (c, param) { el = c; if (param) view.sel = param; desenhar(); };
+  view.render = function (c, param) { el = c; view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { desenhar(); };
 
   function fila() {
-    const hoje = U.dataISO();
+    const d = DT.opUI.dataDe(view);
     const b = view.busca.toLowerCase();
-    return DT.db.agendamentos().filter(a => a.data === hoje && G.ativosPreChegada.indexOf(a.status) >= 0)
+    return DT.db.agendamentos().filter(a => a.data === d && G.ativosPreChegada.indexOf(a.status) >= 0)
       .filter(a => !b || a.pedido.numero.indexOf(b) >= 0 || a.pedido.cliente.toLowerCase().indexOf(b) >= 0 || (a.pedido.notaFiscal || '').indexOf(b) >= 0)
       .sort((a, b2) => a.hora < b2.hora ? -1 : 1);
   }
 
   function desenhar() {
     clearInterval(timer);
+    const d = DT.opUI.dataDe(view), hoje = U.dataISO();
     const lista = fila();
+    const doDia = DT.db.agendamentos().filter(a => a.data === d);
+    const chegadas = doDia.filter(a => a.chegada).sort((a, b) => a.chegada < b.chegada ? -1 : 1);
+    const ausentes = doDia.filter(a => a.status === S.NAO_COMPARECEU).length;
     let ag = view.sel ? DT.db.agendamentoPorId(view.sel) : null;
     if (ag && G.ativosPreChegada.indexOf(ag.status) < 0 && ag.status !== S.CHEGOU) ag = null;
+    const titulo = d === hoje ? 'Clientes aguardados hoje' : d < hoje ? 'Não registrados em ' + U.fmtData(d).slice(0, 5) : 'Aguardados em ' + U.fmtData(d).slice(0, 5);
     el.innerHTML =
+      DT.opUI.filtroDataHTML(view, 'ck', [['Aguardados', lista.length], ['Chegaram', chegadas.length], ['Não compareceram', ausentes]]) +
       '<div class="grid-side-main">' +
-        '<section class="card"><div class="card-head"><h3>Clientes aguardados hoje</h3><span class="spacer"></span><span class="subtle">' + lista.length + '</span></div>' +
-          '<div class="card-body" style="padding-bottom:0"><div class="field"><label for="ck-busca">Localizar agendamento</label><input id="ck-busca" class="input" placeholder="Pedido, nota fiscal ou cliente" value="' + esc(view.busca) + '"></div></div>' +
-          '<div class="queue" style="margin-top:12px">' + (lista.length ? lista.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id)).join('') : ui.empty('Nenhum cliente aguardado.', 'car')) + '</div>' +
-        '</section>' +
+        '<div class="stack">' +
+          '<section class="card"><div class="card-head"><h3>' + titulo + '</h3><span class="spacer"></span><span class="subtle">' + lista.length + '</span></div>' +
+            '<div class="card-body" style="padding-bottom:0"><div class="field"><label for="ck-busca">Localizar agendamento</label><input id="ck-busca" class="input" placeholder="Pedido, nota fiscal ou cliente" value="' + esc(view.busca) + '"></div></div>' +
+            '<div class="queue" style="margin-top:12px">' + (lista.length ? lista.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id)).join('') : ui.empty(d < hoje ? 'Todos os clientes deste dia foram registrados.' : 'Nenhum cliente aguardado nesta data.', 'car')) + '</div>' +
+          '</section>' +
+          '<section class="card"><div class="card-head"><h3>Chegadas registradas</h3><span class="spacer"></span><span class="subtle">' + chegadas.length + '</span></div><div class="queue">' +
+            (chegadas.length ? chegadas.map(a => '<div class="queue-item" style="cursor:default"><span class="qt">' + U.fmtHora(a.chegada) + '</span><span class="qm"><b>' + esc(a.pedido.cliente) + '</b><span class="row">' + ui.tag(a.pedido.numero) + ui.badge(a.status) + '<span class="subtle">agendado ' + a.hora + '</span></span></span></div>').join('') : ui.empty('Nenhuma chegada registrada nesta data.', 'pin')) +
+          '</div></section>' +
+        '</div>' +
         '<section class="card" id="ck-painel">' + (ag ? painel(ag) : '<div class="card-body">' + ui.empty('Selecione um agendamento na lista para registrar a chegada.', 'car') + '</div>') + '</section>' +
       '</div>';
+    DT.opUI.ligarFiltroData(el, view, 'ck', desenhar);
 
     const busca = el.querySelector('#ck-busca');
     busca.addEventListener('input', e => {
@@ -189,8 +242,11 @@ DT.views.checkin = (function () {
     const pronto = DT.ag.prepAtual(ag) === S.PRONTO;
     const slotPassou = new Date() > U.toDate(ag.data, ag.hora);
     if (ag.data !== U.dataISO()) {
+      const passado = ag.data < U.dataISO();
       return '<div class="card-body">' + DT.opUI.resumoPedido(ag) +
-        ui.notice('warn', 'Este agendamento é para <b>' + U.fmtData(ag.data) + ' às ' + ag.hora + '</b>. Para atender hoje, o Comercial precisa reagendar a retirada.') + '</div>';
+        ui.notice('warn', 'Este agendamento é para <b>' + U.fmtData(ag.data) + ' às ' + ag.hora + '</b>. A chegada só é registrada no dia agendado. ' +
+          (passado ? 'Se o cliente não veio, registre o não comparecimento; se vier hoje, o Comercial precisa reagendar.' : 'Para atender hoje, o Comercial precisa reagendar a retirada.')) + '</div>' +
+        (passado ? '<div class="card-foot"><button type="button" class="btn danger" id="ck-noshow">' + ui.icon('ban') + 'Não compareceu</button></div>' : '');
     }
     return '<div class="card-head"><h3>Registrar chegada</h3></div><form id="ck-form" novalidate><div class="card-body">' +
       DT.opUI.resumoPedido(ag) +
@@ -212,7 +268,11 @@ DT.views.checkin = (function () {
   function bindPainel(ag) {
     const ir = el.querySelector('#ck-ir-atend');
     if (ir) { ir.addEventListener('click', () => DT.app.ir('atendimento', ag.id)); return; }
-    if (!el.querySelector('#ck-form')) return;
+    if (!el.querySelector('#ck-form')) {
+      const nsPassado = el.querySelector('#ck-noshow');
+      if (nsPassado) nsPassado.addEventListener('click', () => DT.acoes.naoCompareceu(ag, () => { view.sel = null; desenhar(); DT.app.montarMenu(); }));
+      return;
+    }
     timer = setInterval(() => { const n = el.querySelector('#ck-agora'); if (n) n.textContent = U.horaHM(); else clearInterval(timer); }, 5000);
     const cam = el.querySelector('#ck-caminho');
     if (cam) cam.addEventListener('click', () => { const r = DT.ag.clienteACaminho(ag.id); if (!r.ok) ui.toast(r.erro, 'err'); else { ui.toast('Cliente a caminho registrado.'); desenhar(); } });
@@ -244,13 +304,20 @@ DT.views.atendimento = (function () {
   const view = { titulo: 'Atendimento', eyebrow: 'Logística · Doca e carregamento', aoVivo: true, sel: null };
   let el;
 
-  view.render = function (c, param) { el = c; if (param) view.sel = param; desenhar(); };
+  view.render = function (c, param) { el = c; view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { desenhar(); };
 
   function desenhar() {
+    const d = DT.opUI.dataDe(view), hoje = U.dataISO();
     const ags = DT.db.agendamentos();
-    const aguardando = ags.filter(a => a.status === S.CHEGOU).sort((a, b) => a.chegada < b.chegada ? -1 : 1);
-    const emAt = ags.filter(a => a.status === S.EM_ATENDIMENTO || a.status === S.CARREGANDO).sort((a, b) => a.inicioAtendimento < b.inicioAtendimento ? -1 : 1);
+    // listas completas (as docas e o limite de veículos valem para todas as datas)
+    const aguardandoTodos = ags.filter(a => a.status === S.CHEGOU);
+    const emAtTodos = ags.filter(a => a.status === S.EM_ATENDIMENTO || a.status === S.CARREGANDO);
+    const aguardando = aguardandoTodos.filter(a => a.data === d).sort((a, b) => a.chegada < b.chegada ? -1 : 1);
+    const emAt = emAtTodos.filter(a => a.data === d).sort((a, b) => a.inicioAtendimento < b.inicioAtendimento ? -1 : 1);
+    const doDia = ags.filter(a => a.data === d);
+    const atendidos = doDia.filter(a => a.inicioAtendimento && [S.ENTREGUE, S.CONCLUIDO].indexOf(a.status) >= 0);
+    const esperaMedia = U.media(doDia.filter(a => a.inicioAtendimento).map(a => DT.kpi.tempos(a).espera));
     let ag = view.sel ? DT.db.agendamentoPorId(view.sel) : null;
     if (ag && [S.CHEGOU, S.EM_ATENDIMENTO, S.CARREGANDO].indexOf(ag.status) < 0) ag = null;
     if (!ag) ag = aguardando[0] || emAt[0] || null;
@@ -258,15 +325,21 @@ DT.views.atendimento = (function () {
     const agora = new Date().toISOString();
 
     el.innerHTML =
+      DT.opUI.filtroDataHTML(view, 'at', [['Aguardando', aguardando.length], ['Em atendimento', emAt.length], ['Atendidos', atendidos.length], ['Espera média', U.fmtDuracao(esperaMedia)]]) +
+      DT.opUI.avisoOutrasDatas(aguardandoTodos.concat(emAtTodos), d, 'veículo(s) no local') +
       '<div class="grid-side-main">' +
         '<div class="stack">' +
           '<section class="card"><div class="card-head"><h3>Aguardando atendimento</h3><span class="spacer"></span><span class="subtle">' + aguardando.length + '</span></div>' +
-            '<div class="queue">' + (aguardando.length ? aguardando.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id, 'Chegou ' + U.fmtHora(a.chegada) + ' · esperando há ' + U.fmtDuracao(U.difMin(a.chegada, agora)))).join('') : ui.empty('Nenhum cliente aguardando.', 'car')) + '</div></section>' +
-          '<section class="card"><div class="card-head"><h3>Em atendimento</h3><span class="spacer"></span><span class="subtle">' + emAt.length + ' de ' + cfg.maxVeiculosSimultaneos + ' veículos</span></div>' +
-            '<div class="queue">' + (emAt.length ? emAt.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id, esc(a.doca) + ' · há ' + U.fmtDuracao(U.difMin(a.inicioAtendimento, agora)))).join('') : ui.empty('Nenhuma doca em uso.', 'truck')) + '</div></section>' +
+            '<div class="queue">' + (aguardando.length ? aguardando.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id, 'Chegou ' + U.fmtHora(a.chegada) + ' · esperando há ' + U.fmtDuracao(U.difMin(a.chegada, agora)))).join('') : ui.empty('Nenhum cliente aguardando nesta data.', 'car')) + '</div></section>' +
+          '<section class="card"><div class="card-head"><h3>Em atendimento</h3><span class="spacer"></span><span class="subtle">' + (d === hoje ? emAtTodos.length + ' de ' + cfg.maxVeiculosSimultaneos + ' veículos' : emAt.length) + '</span></div>' +
+            '<div class="queue">' + (emAt.length ? emAt.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id, esc(a.doca) + ' · há ' + U.fmtDuracao(U.difMin(a.inicioAtendimento, agora)))).join('') : ui.empty('Nenhuma doca em uso nesta data.', 'truck')) + '</div></section>' +
+          '<section class="card"><div class="card-head"><h3>Atendidos</h3><span class="spacer"></span><span class="subtle">' + atendidos.length + '</span></div><div class="queue">' +
+            (atendidos.length ? atendidos.sort((a, b) => a.inicioAtendimento < b.inicioAtendimento ? -1 : 1).map(a => '<div class="queue-item" style="cursor:default"><span class="qt">' + U.fmtHora(a.inicioAtendimento) + '</span><span class="qm"><b>' + esc(a.pedido.cliente) + '</b><span class="row">' + ui.tag(a.pedido.numero) + '<span class="subtle">' + esc(a.doca || '') + ' · espera ' + U.fmtDuracao(DT.kpi.tempos(a).espera) + ' · atendimento ' + U.fmtDuracao(DT.kpi.tempos(a).atendimento) + '</span></span></span></div>').join('') : ui.empty('Nenhum atendimento concluído nesta data.', 'check')) +
+          '</div></section>' +
         '</div>' +
-        '<section class="card">' + (ag ? painel(ag, emAt) : '<div class="card-body">' + ui.empty('Quando um cliente fizer check-in, ele aparece aqui para iniciar o atendimento.', 'truck') + '</div>') + '</section>' +
+        '<section class="card">' + (ag ? painel(ag, emAtTodos) : '<div class="card-body">' + ui.empty('Quando um cliente fizer check-in, ele aparece aqui para iniciar o atendimento.', 'truck') + '</div>') + '</section>' +
       '</div>';
+    DT.opUI.ligarFiltroData(el, view, 'at', desenhar);
     DT.opUI.bindQueue(el, id => { view.sel = id; desenhar(); });
     if (ag) bindPainel(ag);
   }
@@ -339,29 +412,35 @@ DT.views.entrega = (function () {
   const view = { titulo: 'Entrega', eyebrow: 'Logística · Finalização da retirada', aoVivo: true, sel: null, finalizado: null };
   let el;
 
-  view.render = function (c, param) { el = c; if (param) { view.sel = param; view.finalizado = null; } desenhar(); };
+  view.render = function (c, param) { el = c; view.sel = param || null; view.finalizado = null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { if (!view.finalizado) desenhar(); };
 
   function desenhar() {
-    const emAt = DT.db.agendamentos().filter(a => a.status === S.EM_ATENDIMENTO || a.status === S.CARREGANDO)
-      .sort((a, b) => a.inicioAtendimento < b.inicioAtendimento ? -1 : 1);
+    const d = DT.opUI.dataDe(view), hoje = U.dataISO();
+    const ags = DT.db.agendamentos();
+    const emAtTodos = ags.filter(a => a.status === S.EM_ATENDIMENTO || a.status === S.CARREGANDO);
+    const emAt = emAtTodos.filter(a => a.data === d).sort((a, b) => a.inicioAtendimento < b.inicioAtendimento ? -1 : 1);
     let ag = view.sel ? DT.db.agendamentoPorId(view.sel) : null;
     if (ag && [S.EM_ATENDIMENTO, S.CARREGANDO].indexOf(ag.status) < 0) ag = null;
     if (!ag && !view.finalizado) ag = emAt[0] || null;
-    const hojeConcl = DT.db.agendamentos().filter(a => a.data === U.dataISO() && a.status === S.CONCLUIDO).sort((a, b) => a.entrega < b.entrega ? 1 : -1).slice(0, 6);
+    const concl = ags.filter(a => a.data === d && a.status === S.CONCLUIDO).sort((a, b) => a.entrega < b.entrega ? 1 : -1);
+    const atendMedio = U.media(concl.map(a => DT.kpi.tempos(a).atendimento));
     const agora = new Date().toISOString();
 
     el.innerHTML =
+      DT.opUI.filtroDataHTML(view, 'en', [['Em atendimento', emAt.length], ['Concluídas', concl.length], ['Atendimento médio', U.fmtDuracao(atendMedio)]]) +
+      DT.opUI.avisoOutrasDatas(emAtTodos, d, 'veículo(s) em atendimento') +
       '<div class="grid-side-main">' +
         '<div class="stack">' +
           '<section class="card"><div class="card-head"><h3>Em atendimento</h3><span class="spacer"></span><span class="subtle">' + emAt.length + '</span></div>' +
-            '<div class="queue">' + (emAt.length ? emAt.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id, esc(a.doca) + ' · há ' + U.fmtDuracao(U.difMin(a.inicioAtendimento, agora)))).join('') : ui.empty('Nenhum veículo em atendimento.', 'truck')) + '</div></section>' +
-          '<section class="card"><div class="card-head"><h3>Concluídas hoje</h3></div><div class="queue">' +
-            (hojeConcl.length ? hojeConcl.map(a => '<div class="queue-item" style="cursor:default"><span class="qt">' + U.fmtHora(a.entrega) + '</span><span class="qm"><b>' + esc(a.pedido.cliente) + '</b><span class="row">' + ui.tag(a.pedido.numero) + '<span class="subtle">' + esc(a.respCarregamento) + '</span></span></span></div>').join('') : ui.empty('Nenhuma retirada concluída hoje.', 'check')) +
+            '<div class="queue">' + (emAt.length ? emAt.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id, esc(a.doca) + ' · há ' + U.fmtDuracao(U.difMin(a.inicioAtendimento, agora)))).join('') : ui.empty('Nenhum veículo em atendimento nesta data.', 'truck')) + '</div></section>' +
+          '<section class="card"><div class="card-head"><h3>' + (d === hoje ? 'Concluídas hoje' : 'Concluídas em ' + U.fmtData(d).slice(0, 5)) + '</h3><span class="spacer"></span><span class="subtle">' + concl.length + '</span></div><div class="queue">' +
+            (concl.length ? concl.map(a => '<div class="queue-item" style="cursor:default"><span class="qt">' + U.fmtHora(a.entrega) + '</span><span class="qm"><b>' + esc(a.pedido.cliente) + '</b><span class="row">' + ui.tag(a.pedido.numero) + '<span class="subtle">' + esc(a.respCarregamento || '') + ' · ' + U.fmtDuracao(DT.kpi.tempos(a).atendimento) + '</span></span></span></div>').join('') : ui.empty('Nenhuma retirada concluída nesta data.', 'check')) +
           '</div></section>' +
         '</div>' +
         '<section class="card">' + (view.finalizado ? resumoFinal(DT.db.agendamentoPorId(view.finalizado)) : ag ? painel(ag) : '<div class="card-body">' + ui.empty('Selecione um veículo em atendimento para registrar a entrega.', 'check') + '</div>') + '</section>' +
       '</div>';
+    DT.opUI.ligarFiltroData(el, view, 'en', desenhar);
     DT.opUI.bindQueue(el, id => { view.sel = id; view.finalizado = null; desenhar(); });
     if (view.finalizado) {
       el.querySelector('#en-prox').addEventListener('click', () => { view.finalizado = null; view.sel = null; desenhar(); });

@@ -76,6 +76,7 @@ DT.opUI = (function () {
   }
   /* Ao abrir a tela: com um agendamento indicado, vai para a data dele; sem, começa em hoje */
   function dataAoAbrir(view, param) {
+    if (!param && DT.app.estaVoltando()) return;      // voltando: mantém a data que estava filtrada
     const ag = param ? DT.db.agendamentoPorId(param) : null;
     view.data = ag && ag.data !== U.dataISO() ? ag.data : null;
   }
@@ -184,7 +185,7 @@ DT.views.checkin = (function () {
   const view = { titulo: 'Check-in', eyebrow: 'Logística · Chegada do cliente', aoVivo: true, sel: null, busca: '' };
   let el, timer;
 
-  view.render = function (c, param) { el = c; view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
+  view.render = function (c, param) { el = c; if (param || !DT.app.estaVoltando()) view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { desenhar(); };
 
   function fila() {
@@ -304,7 +305,7 @@ DT.views.atendimento = (function () {
   const view = { titulo: 'Atendimento', eyebrow: 'Logística · Doca e carregamento', aoVivo: true, sel: null };
   let el;
 
-  view.render = function (c, param) { el = c; view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
+  view.render = function (c, param) { el = c; if (param || !DT.app.estaVoltando()) view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { desenhar(); };
 
   function desenhar() {
@@ -412,7 +413,7 @@ DT.views.entrega = (function () {
   const view = { titulo: 'Entrega', eyebrow: 'Logística · Finalização da retirada', aoVivo: true, sel: null, finalizado: null };
   let el;
 
-  view.render = function (c, param) { el = c; view.sel = param || null; view.finalizado = null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
+  view.render = function (c, param) { el = c; if (param || !DT.app.estaVoltando()) { view.sel = param || null; view.finalizado = null; } DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { if (!view.finalizado) desenhar(); };
 
   function desenhar() {
@@ -488,30 +489,91 @@ DT.views.entrega = (function () {
 
 /* =========================== ACOMPANHAR PEDIDO =========================== */
 DT.views.pedido = (function () {
-  const U = DT.util, ui = DT.ui, esc = U.esc, S = DT.STATUS;
-  const view = { titulo: 'Acompanhar pedido', eyebrow: 'Linha do tempo e histórico', aoVivo: true };
+  const U = DT.util, ui = DT.ui, esc = U.esc, S = DT.STATUS, G = DT.STATUS_GRUPOS;
+  const view = { titulo: 'Acompanhar pedido', eyebrow: 'Linha do tempo e histórico', aoVivo: true, data: null, busca: '' };
   let el, numero = '', agSel = null;
 
-  view.render = function (c, param) { el = c; numero = (param || '').replace(/\D/g, ''); agSel = null; desenhar(); };
-  view.refresh = function () { desenhar(); };
+  view.render = function (c, param) {
+    el = c; numero = (param || '').replace(/\D/g, ''); agSel = null;
+    // Pelo menu, a lista abre em hoje; ao voltar da linha do tempo, mantém a data e a busca
+    if (!numero && !DT.app.estaVoltando()) { view.data = null; view.busca = ''; }
+    desenhar();
+  };
+  view.refresh = function () {
+    const b = el && el.querySelector('#pd-busca');
+    if (b && document.activeElement === b) return;
+    desenhar();
+  };
 
-  function desenhar() {
-    const lista = numero ? DT.ag.doPedido(numero) : [];
+  function desenhar() { if (numero) desenharPedido(); else desenharLista(); }
+
+  /* ---------- Lista do dia (com filtro de data) ---------- */
+  function desenharLista() {
+    const d = DT.opUI.dataDe(view), hoje = U.dataISO();
+    const doDia = DT.db.agendamentos().filter(a => a.data === d);
+    const b = view.busca.toLowerCase();
+    const lista = doDia.filter(a => !b || a.pedido.numero.indexOf(b) >= 0 || a.pedido.cliente.toLowerCase().indexOf(b) >= 0)
+      .sort((x, y) => (x.hora + x.criadoEm) < (y.hora + y.criadoEm) ? -1 : 1);
+    const conta = f => doDia.filter(f).length;
+    const stats = [
+      ['Retiradas', conta(a => a.status !== S.CANCELADO)],
+      ['Em andamento', conta(a => G.finalizados.indexOf(a.status) < 0)],
+      ['Concluídas', conta(a => a.status === S.CONCLUIDO)],
+      ['Canceladas / ausentes', conta(a => a.status === S.CANCELADO || a.status === S.NAO_COMPARECEU)]
+    ];
+    el.innerHTML =
+      DT.opUI.filtroDataHTML(view, 'pd', stats) +
+      '<section class="card"><div class="card-body"><form id="pd-f" class="row" style="align-items:end" novalidate>' +
+        '<div class="field" style="flex:1 1 240px"><label for="pd-num">Consultar pelo nº do pedido <span class="subtle">(qualquer data)</span></label><input id="pd-num" class="input big" inputmode="numeric" placeholder="Ex.: 123101"></div>' +
+        '<button type="submit" class="btn primary lg">' + ui.icon('search') + 'Consultar</button></form></div></section>' +
+      '<section class="card"><div class="card-head"><h3>' + (d === hoje ? 'Retiradas de hoje' : 'Retiradas de ' + U.fmtData(d)) + '</h3><span class="spacer"></span>' +
+        '<div class="field" style="width:260px;max-width:100%"><label class="sr-only" for="pd-busca">Filtrar a lista</label><input id="pd-busca" class="input" placeholder="Filtrar por cliente ou pedido" value="' + esc(view.busca) + '"></div></div>' +
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Horário</th><th>Pedido</th><th>Cliente</th><th>Status</th><th>Última alteração</th></tr></thead><tbody>' +
+      (lista.length ? lista.map(a => '<tr class="clickable" data-num="' + esc(a.pedido.numero) + '" tabindex="0"><td class="time">' + a.hora + '</td><td>' + ui.tag(a.pedido.numero, false) + '</td><td>' + esc(a.pedido.cliente) + '</td><td>' + ui.badge(a.status) + '</td><td class="subtle">' + U.fmtDataHora(a.alteradoEm) + ' · ' + esc(a.alteradoPor) + '</td></tr>').join('')
+        : '<tr><td colspan="5">' + ui.empty(view.busca ? 'Nenhuma retirada encontrada para "' + view.busca + '" nesta data.' : 'Nenhuma retirada agendada nesta data.', 'calendar') + '</td></tr>') +
+      '</tbody></table></div></section>';
+
+    DT.opUI.ligarFiltroData(el, view, 'pd', desenhar);
+    el.querySelector('#pd-f').addEventListener('submit', e => {
+      e.preventDefault();
+      const n = el.querySelector('#pd-num').value.replace(/\D/g, '');
+      if (n) DT.app.ir('pedido', n);
+    });
+    const busca = el.querySelector('#pd-busca');
+    busca.addEventListener('input', e => {
+      view.busca = e.target.value.trim(); desenharLista();
+      const nb = el.querySelector('#pd-busca'); nb.focus(); nb.setSelectionRange(nb.value.length, nb.value.length);
+    });
+    el.querySelectorAll('tr[data-num]').forEach(r => {
+      r.addEventListener('click', () => DT.app.ir('pedido', r.dataset.num));
+      r.addEventListener('keydown', e => { if (e.key === 'Enter') DT.app.ir('pedido', r.dataset.num); });
+    });
+  }
+
+  /* ---------- Linha do tempo de um pedido ---------- */
+  function desenharPedido() {
+    const lista = DT.ag.doPedido(numero);
     const ag = lista.find(a => a.id === agSel) || lista[0] || null;
-    const recentes = numero ? [] : DT.db.agendamentos().slice().sort((a, b) => a.alteradoEm < b.alteradoEm ? 1 : -1).slice(0, 10);
+    const ant = DT.app.rotaAnterior();
+    const destino = ant && !(ant.id === 'pedido' && ant.param === numero) ? ant : { id: 'pedido', param: '' };
+    const rotulo = destino.id === 'pedido' ? (destino.param ? 'Voltar ao pedido ' + destino.param : 'Voltar para a lista') : 'Voltar para ' + DT.app.nomeRota(destino.id);
 
     el.innerHTML =
-      '<section class="card"><div class="card-body"><form id="pd-f" class="row" style="align-items:end" novalidate>' +
-        '<div class="field" style="flex:1 1 240px"><label for="pd-num">Nº do pedido</label><input id="pd-num" class="input big" inputmode="numeric" value="' + esc(numero) + '" placeholder="Ex.: 123101"></div>' +
-        '<button type="submit" class="btn primary lg">' + ui.icon('search') + 'Consultar</button></form></div></section>' +
-      (numero && !lista.length ? ui.notice('warn', 'Nenhum agendamento encontrado para o pedido <b class="mono">' + esc(numero) + '</b>.' + (DT.auth.pode('agendamento.criar') ? ' <a href="#agendar">Agendar retirada</a>' : '')) : '') +
-      (ag ? detalhe(ag, lista) : '') +
-      (recentes.length ? '<section class="card"><div class="card-head"><h3>Movimentados recentemente</h3></div><div class="table-wrap"><table class="table"><thead><tr><th>Pedido</th><th>Cliente</th><th>Retirada</th><th>Status</th><th>Última alteração</th></tr></thead><tbody>' +
-        recentes.map(a => '<tr class="clickable" data-num="' + esc(a.pedido.numero) + '"><td>' + ui.tag(a.pedido.numero, false) + '</td><td>' + esc(a.pedido.cliente) + '</td><td class="mono">' + U.fmtData(a.data).slice(0, 5) + ' ' + a.hora + '</td><td>' + ui.badge(a.status) + '</td><td class="subtle">' + U.fmtDataHora(a.alteradoEm) + ' · ' + esc(a.alteradoPor) + '</td></tr>').join('') +
-        '</tbody></table></div></section>' : '');
+      '<section class="card"><div class="card-body"><div class="row between" style="align-items:end">' +
+        '<button type="button" class="btn ghost" id="pd-voltar">' + ui.icon('back') + esc(rotulo) + '</button>' +
+        '<form id="pd-f" class="row" style="align-items:end;flex:1 1 360px;justify-content:flex-end" novalidate>' +
+          '<div class="field" style="flex:1 1 200px;max-width:320px"><label for="pd-num">Nº do pedido</label><input id="pd-num" class="input mono" inputmode="numeric" value="' + esc(numero) + '" placeholder="Ex.: 123101"></div>' +
+          '<button type="submit" class="btn primary">' + ui.icon('search') + 'Consultar</button></form>' +
+      '</div></div></section>' +
+      (!lista.length ? ui.notice('warn', 'Nenhum agendamento encontrado para o pedido <b class="mono">' + esc(numero) + '</b>.' + (DT.auth.pode('agendamento.criar') ? ' <a href="#agendar">Agendar retirada</a>' : '')) : '') +
+      (ag ? detalhe(ag, lista) : '');
 
-    el.querySelector('#pd-f').addEventListener('submit', e => { e.preventDefault(); DT.app.ir('pedido', el.querySelector('#pd-num').value.replace(/\D/g, '')); });
-    el.querySelectorAll('[data-num]').forEach(r => r.addEventListener('click', () => DT.app.ir('pedido', r.dataset.num)));
+    el.querySelector('#pd-voltar').addEventListener('click', () => DT.app.voltar(destino));
+    el.querySelector('#pd-f').addEventListener('submit', e => {
+      e.preventDefault();
+      const n = el.querySelector('#pd-num').value.replace(/\D/g, '');
+      DT.app.ir('pedido', n);
+    });
     el.querySelectorAll('[data-agsel]').forEach(b => b.addEventListener('click', () => { agSel = b.dataset.agsel; desenhar(); }));
     const ac = el.querySelector('#pd-acoes');
     if (ac) ac.addEventListener('click', () => DT.acoes.detalhe(ag, () => desenhar()));

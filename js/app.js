@@ -7,6 +7,8 @@ DT.views = DT.views || {};
 DT.app = (function () {
   const U = DT.util, ui = DT.ui, esc = U.esc;
   let rotaAtual = null;
+  let rotaAnterior = null;   // tela de onde o usuário veio (botão Voltar)
+  let voltando = false;      // a navegação atual é um "Voltar": as telas mantêm seus filtros
   let timerRelogio = null, timerRefresh = null;
 
   /* ------------------------------ Tema ------------------------------ */
@@ -224,6 +226,7 @@ DT.app = (function () {
       r = { id: ini, param: '' };
       item = todos.find(i => i.id === ini);
     }
+    if (rotaAtual && (rotaAtual.id !== r.id || rotaAtual.param !== r.param)) rotaAnterior = rotaAtual;
     rotaAtual = r;
     const v = DT.views[r.id];
     document.getElementById('tb-title').textContent = item.label;
@@ -232,6 +235,7 @@ DT.app = (function () {
     const el = document.getElementById('view');
     el.innerHTML = '';
     v.render(el, r.param);
+    voltando = false;
     document.getElementById('shell').classList.remove('nav-open');
     montarMenu();
     window.scrollTo(0, 0);
@@ -268,6 +272,7 @@ DT.app = (function () {
 
   function iniciar() {
     parar();
+    rotaAtual = null; rotaAnterior = null;
     const cod = rotaCliente();
     if (cod !== null) { mostrarCliente(cod); return; }
     DT.cliente.sair();
@@ -368,7 +373,18 @@ DT.app = (function () {
     });
   }
 
-  return { boot, ir, render, montarMenu, rotaAtual: () => rotaAtual };
+  /* Volta para a tela anterior (ou para a indicada), mantendo os filtros dela */
+  function voltar(destino) {
+    destino = destino || rotaAnterior || { id: rotaInicial(DT.auth.usuarioAtual()), param: '' };
+    voltando = true;
+    ir(destino.id, destino.param);
+  }
+  function nomeRota(id) {
+    const it = DT.MENU.flatMap(g => g.itens).find(i => i.id === id);
+    return it ? it.label : '';
+  }
+
+  return { boot, ir, render, montarMenu, voltar, nomeRota, rotaAtual: () => rotaAtual, rotaAnterior: () => rotaAnterior, estaVoltando: () => voltando };
 })();
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', DT.app.boot);

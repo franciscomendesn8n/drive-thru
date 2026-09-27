@@ -70,8 +70,10 @@ DT.app = (function () {
       avisoLogin = null;
       await prepararDemonstracao();
       history.replaceState(null, '', location.pathname + location.search);
+      DT.lgpd.novaSessao();              // novo login: o termo é exibido de novo
+      trocarSenhaAoEntrar = !!r.senhaFraca;
       iniciar();
-      if (r.senhaFraca) setTimeout(() => abrirTrocaSenha(true), 300);
+
     });
     root.querySelectorAll('.demo-user').forEach(b => b.addEventListener('click', () => {
       f.username.value = b.dataset.l; f.password.value = b.dataset.s; f.querySelector('button[type=submit]').focus();
@@ -164,6 +166,7 @@ DT.app = (function () {
     document.getElementById('btn-sair').addEventListener('click', async () => {
       parar();
       try { await DT.auth.logout(); } catch (e) { /* segue para o login */ }
+      DT.lgpd.novaSessao();
       history.replaceState(null, '', location.pathname + location.search);
       telaLogin();
     });
@@ -259,15 +262,29 @@ DT.app = (function () {
     window.scrollTo(0, 0);
   }
 
+  let trocarSenhaAoEntrar = false;   // senha fraca: pede a troca depois do termo LGPD
+
   function iniciar() {
     parar();
     const cod = rotaCliente();
     if (cod !== null) { mostrarCliente(cod); return; }
     DT.cliente.sair();
-    if (!DT.auth.usuarioAtual()) { telaLogin(); return; }
+    const u = DT.auth.usuarioAtual();
+    if (!u) { telaLogin(); return; }
+    // Termo LGPD: o sistema só é liberado depois do "ciente" + OK
+    if (DT.lgpd.precisaAceitar(u)) {
+      DT.lgpd.tela(document.getElementById('app'), u, iniciar, async () => {
+        try { await DT.auth.logout(); } catch (e) { /* segue para o login */ }
+        DT.lgpd.novaSessao();
+        history.replaceState(null, '', location.pathname + location.search);
+        telaLogin('Para usar o sistema é necessário estar ciente do termo de proteção de dados pessoais (LGPD).');
+      });
+      return;
+    }
     montarShell();
     render();
     timerRefresh = setInterval(atualizarAoVivo, 30000);
+    if (trocarSenhaAoEntrar) { trocarSenhaAoEntrar = false; setTimeout(() => abrirTrocaSenha(true), 300); }
   }
 
   function telaCarregando(msg) {
@@ -297,6 +314,7 @@ DT.app = (function () {
         document.querySelectorAll('.modal-back').forEach(m => m.remove());
         history.replaceState(null, '', location.pathname + location.search);
         avisoLogin = 'Sua sessão foi encerrada. Isso acontece quando a senha é trocada, o usuário é desativado ou o acesso expira. Entre novamente.';
+        DT.lgpd.novaSessao();
         telaLogin();
       });
       const cod = rotaCliente();

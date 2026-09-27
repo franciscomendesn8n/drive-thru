@@ -8,7 +8,7 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.2.4',
+  versao: '0.3.0',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10
 };
@@ -29,7 +29,9 @@ DT.DEFAULT_SETTINGS = {
   preparacaoCriticaMin: 30,      // faltando X min e pedido não pronto = preparação crítica
   limiteItens: 0,                // 0 = sem limite; >0 bloqueia pedidos com mais itens
   docas: ['Doca 14 - Drive Thru', 'Doca 15 - Drive Thru'],
-  unidade: 'CD - Unidade Principal'
+  unidade: 'CD - Unidade Principal',
+  lgpdModo: 'cada_login',        // 'cada_login' ou 'uma_vez' (uma vez por versão do termo)
+  lgpdEncarregado: ''            // contato do Encarregado de Dados (DPO), exibido no termo
 };
 
 /* Status operacionais (item 9 do escopo) */

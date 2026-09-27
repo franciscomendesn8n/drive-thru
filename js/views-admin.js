@@ -285,7 +285,8 @@ DT.views.config = (function () {
     horaInicio: 'Horário inicial', horaFim: 'Horário final', intervaloMin: 'Intervalo entre horários', pedidosPorJanela: 'Pedidos por janela',
     maxVeiculosSimultaneos: 'Veículos simultâneos', antecedenciaMinMin: 'Antecedência mínima', diasFuncionamento: 'Dias de funcionamento',
     diasAgendaAFrente: 'Dias de agenda aberta', toleranciaMin: 'Tolerância', noShowMin: 'Prazo para não comparecimento',
-    preparacaoCriticaMin: 'Aviso de preparação crítica', limiteItens: 'Limite de itens', docas: 'Docas', unidade: 'Unidade'
+    preparacaoCriticaMin: 'Aviso de preparação crítica', limiteItens: 'Limite de itens', docas: 'Docas', unidade: 'Unidade',
+    lgpdModo: 'Exibição do termo LGPD', lgpdEncarregado: 'Encarregado de Dados (DPO)'
   };
 
   view.render = function (c) { el = c; desenhar(); };
@@ -324,6 +325,10 @@ DT.views.config = (function () {
             '<div class="field"><label for="cf-pc">Preparação crítica (min)</label><input type="number" min="5" max="240" id="cf-pc" class="input" value="' + cfg.preparacaoCriticaMin + '"><span class="hint">Faltando esse tempo e o pedido não estiver pronto.</span></div>' +
             '<div class="field"><label for="cf-lim">Limite de itens por pedido</label><input type="number" min="0" id="cf-lim" class="input" value="' + cfg.limiteItens + '"><span class="hint">0 = sem limite.</span></div>' +
             '<div class="field"><label for="cf-un">Unidade</label><input id="cf-un" class="input" value="' + esc(cfg.unidade) + '"></div>' +
+            '<div class="field"><label for="cf-lgpd">Termo LGPD após o login</label><select id="cf-lgpd" class="select">' +
+              ui.options([{ value: 'cada_login', label: 'Exibir a cada login' }, { value: 'uma_vez', label: 'Exibir uma vez (e quando o termo mudar)' }], cfg.lgpdModo || 'cada_login') + '</select>' +
+              '<span class="hint">Versão atual do termo: ' + esc(DT.LGPD.versao) + ' · <button type="button" class="btn link sm" id="cf-lgpd-ver" style="padding:0">ver termo</button></span></div>' +
+            '<div class="field"><label for="cf-dpo">Contato do Encarregado de Dados (DPO)</label><input id="cf-dpo" class="input" value="' + esc(cfg.lgpdEncarregado || '') + '" placeholder="Ex.: Nome — dpo@empresa.com.br"><span class="hint">Aparece no termo LGPD.</span></div>' +
           '</div>' +
           '<div class="field"><label for="cf-docas">Docas do Drive Thru (uma por linha)</label><textarea id="cf-docas" class="textarea">' + esc(cfg.docas.join('\n')) + '</textarea></div>' +
         '</div></section>' +
@@ -346,8 +351,10 @@ DT.views.config = (function () {
       diasAgendaAFrente: Number(f.querySelector('#cf-dias').value), toleranciaMin: Number(f.querySelector('#cf-tol').value),
       noShowMin: Number(f.querySelector('#cf-ns').value), preparacaoCriticaMin: Number(f.querySelector('#cf-pc').value),
       limiteItens: Number(f.querySelector('#cf-lim').value) || 0, unidade: f.querySelector('#cf-un').value.trim() || cfg.unidade,
+      lgpdModo: f.querySelector('#cf-lgpd').value, lgpdEncarregado: f.querySelector('#cf-dpo').value.trim(),
       docas: f.querySelector('#cf-docas').value.split('\n').map(s => s.trim()).filter(Boolean)
     });
+    el.querySelector('#cf-lgpd-ver').addEventListener('click', () => DT.lgpd.visualizar());
     f.addEventListener('input', () => { try { el.querySelector('#cf-previa').innerHTML = previa(ler()); } catch (e) { /* campos incompletos */ } });
     f.addEventListener('submit', e => {
       e.preventDefault();

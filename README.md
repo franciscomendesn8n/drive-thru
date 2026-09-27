@@ -90,6 +90,19 @@ dados de demonstração.
 configurar as regras de senha no Supabase, desativar os usuários de demonstração e apagar os dados de
 demonstração (Configurações › Começar operação real).
 
+## Termo LGPD após o login
+
+Logo após o login, o sistema mostra o **Termo de Ciência e Responsabilidade no Tratamento de Dados
+Pessoais** (Lei nº 13.709/2018). O acesso só é liberado depois que o usuário marca a declaração de
+ciência e clica em **OK**. Quem clica em "Não aceito — sair" volta ao login.
+
+- Cada aceite (e recusa) fica na **Auditoria**: usuário, data, hora e versão do termo.
+- Em Configurações: exibir **a cada login** (padrão) ou **uma vez por versão do termo**, e o contato
+  do Encarregado de Dados (DPO), que aparece no termo.
+- O texto fica em `js/lgpd.js`. Ao mudar o texto, aumente `DT.LGPD.versao`.
+- A página do cliente (acompanhamento) não passa pelo termo.
+- O texto é um modelo e deve ser validado pelo jurídico / Encarregado de Dados da empresa.
+
 ## Página do cliente (acompanhamento)
 
 Após o agendamento, o comprovante mostra um **link** e um **QR Code** para o cliente
@@ -125,6 +138,7 @@ js/config.js             parâmetros padrão, status, permissões, menu, ERP_CON
 js/utils.js              datas, formatação, hash de senha, CSV
 js/storage.js            camada de dados (memória + localStorage no modo local)
 js/nuvem.js              Supabase: login, carga, gravação e tempo real
+js/lgpd.js               termo LGPD exibido após o login (texto e aceite)
 js/vendor/               bibliotecas incluídas (supabase-js e QR Code, licença MIT)
 js/erp.js                integração com ERP (hoje: base simulada)
 js/services.js           regras de negócio, alertas e indicadores

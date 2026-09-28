@@ -535,7 +535,11 @@ DT.kpi = (function () {
     const pronto = prep === S.PRONTO;
 
     if (G.ativosPreChegada.indexOf(ag.status) >= 0) {
-      if (minAteSlot < -cfg.noShowMin) out.push({ tipo: 'noshow', nivel: 'crit', texto: 'Cliente não compareceu' });
+      // cliente compartilhando a localização a caminho
+      const rast = ag.status === S.A_CAMINHO && DT.rastreio ? DT.rastreio.info(ag.id) : null;
+      if (rast && rast.noRaio && !rast.perdido) out.push({ tipo: 'chegando', nivel: pronto ? 'info' : 'crit', texto: pronto ? 'Cliente chegando' : 'Cliente chegando — pedido não está pronto' });
+      if (rast && !rast.perdido && minAteSlot < -cfg.toleranciaMin) out.push({ tipo: 'clienteAtrasado', nivel: 'warn', texto: 'Cliente atrasado (a caminho)' });
+      else if (minAteSlot < -cfg.noShowMin) out.push({ tipo: 'noshow', nivel: 'crit', texto: 'Cliente não compareceu' });
       else if (minAteSlot < -cfg.toleranciaMin) out.push({ tipo: 'clienteAtrasado', nivel: 'warn', texto: 'Cliente atrasado' });
       if (!pronto && minAteSlot <= cfg.preparacaoCriticaMin && minAteSlot >= -cfg.noShowMin) out.push({ tipo: 'critica', nivel: 'crit', texto: 'Preparação crítica' });
       else if (G.naoSeparado.indexOf(prep) >= 0 && ag.data === U.dataISO(agora) && minAteSlot > cfg.preparacaoCriticaMin) out.push({ tipo: 'pendente', nivel: 'warn', texto: 'Preparação pendente' });

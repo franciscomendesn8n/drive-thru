@@ -19,7 +19,7 @@ DT.opUI = (function () {
   function queueItem(ag, sel, extra) {
     return '<button type="button" class="queue-item' + (sel ? ' sel' : '') + '" data-sel="' + ag.id + '">' +
       '<span class="qt">' + ag.hora + '</span>' +
-      '<span class="qm"><b>' + esc(ag.pedido.cliente) + '</b><span class="row">' + ui.tag(ag.pedido.numero, false) + ui.badge(ag.status) + ui.alertChips(ag) + '</span>' +
+      '<span class="qm"><b>' + esc(ag.pedido.cliente) + '</b><span class="row">' + ui.tag(ag.pedido.numero, false) + ui.badge(ag.status) + ui.alertChips(ag) + (DT.rastreio ? DT.rastreio.chip(ag) : '') + '</span>' +
       (extra ? '<span class="subtle">' + extra + '</span>' : '') + '</span></button>';
   }
 

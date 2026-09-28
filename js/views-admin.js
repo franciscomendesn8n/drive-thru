@@ -286,7 +286,8 @@ DT.views.config = (function () {
     maxVeiculosSimultaneos: 'Veículos simultâneos', antecedenciaMinMin: 'Antecedência mínima', diasFuncionamento: 'Dias de funcionamento',
     diasAgendaAFrente: 'Dias de agenda aberta', toleranciaMin: 'Tolerância', noShowMin: 'Prazo para não comparecimento',
     preparacaoCriticaMin: 'Aviso de preparação crítica', limiteItens: 'Limite de itens', docas: 'Docas', unidade: 'Unidade',
-    lgpdModo: 'Exibição do termo LGPD', lgpdEncarregado: 'Encarregado de Dados (DPO)'
+    lgpdModo: 'Exibição do termo LGPD', lgpdEncarregado: 'Encarregado de Dados (DPO)',
+    rastreioAtivo: 'Localização do cliente a caminho', raioChegadaKm: 'Raio do alerta de chegada (km)'
   };
 
   view.render = function (c) { el = c; desenhar(); };
@@ -329,6 +330,10 @@ DT.views.config = (function () {
               ui.options([{ value: 'cada_login', label: 'Exibir a cada login' }, { value: 'uma_vez', label: 'Exibir uma vez (e quando o termo mudar)' }], cfg.lgpdModo || 'cada_login') + '</select>' +
               '<span class="hint">Versão atual do termo: ' + esc(DT.LGPD.versao) + ' · <button type="button" class="btn link sm" id="cf-lgpd-ver" style="padding:0">ver termo</button></span></div>' +
             '<div class="field"><label for="cf-dpo">Contato do Encarregado de Dados (DPO)</label><input id="cf-dpo" class="input" value="' + esc(cfg.lgpdEncarregado || '') + '" placeholder="Ex.: Nome — dpo@empresa.com.br"><span class="hint">Aparece no termo LGPD.</span></div>' +
+            '<div class="field"><label for="cf-rast">Cliente compartilha a localização a caminho</label><select id="cf-rast" class="select">' +
+              ui.options([{ value: 'sim', label: 'Permitir (botão "Estou a caminho")' }, { value: 'nao', label: 'Desativado' }], cfg.rastreioAtivo === false ? 'nao' : 'sim') + '</select>' +
+              '<span class="hint">Local do CD: ' + (cfg.localCD ? '<span class="mono">' + cfg.localCD.lat.toFixed(5) + ', ' + cfg.localCD.lng.toFixed(5) + '</span>' : '<b>não definido</b>') + ' · <a href="#mapa">definir no Mapa de chegadas</a></span></div>' +
+            '<div class="field"><label for="cf-raio">Alerta "cliente chegando" (km)</label><input type="number" min="0.3" max="30" step="0.1" id="cf-raio" class="input" value="' + (cfg.raioChegadaKm || 2) + '"><span class="hint">A equipe é avisada quando o cliente entra nesse raio.</span></div>' +
           '</div>' +
           '<div class="field"><label for="cf-docas">Docas do Drive Thru (uma por linha)</label><textarea id="cf-docas" class="textarea">' + esc(cfg.docas.join('\n')) + '</textarea></div>' +
         '</div></section>' +
@@ -352,6 +357,7 @@ DT.views.config = (function () {
       noShowMin: Number(f.querySelector('#cf-ns').value), preparacaoCriticaMin: Number(f.querySelector('#cf-pc').value),
       limiteItens: Number(f.querySelector('#cf-lim').value) || 0, unidade: f.querySelector('#cf-un').value.trim() || cfg.unidade,
       lgpdModo: f.querySelector('#cf-lgpd').value, lgpdEncarregado: f.querySelector('#cf-dpo').value.trim(),
+      rastreioAtivo: f.querySelector('#cf-rast').value !== 'nao', raioChegadaKm: Math.min(30, Math.max(0.3, Number(f.querySelector('#cf-raio').value) || 2)),
       docas: f.querySelector('#cf-docas').value.split('\n').map(s => s.trim()).filter(Boolean)
     });
     el.querySelector('#cf-lgpd-ver').addEventListener('click', () => DT.lgpd.visualizar());
@@ -379,7 +385,7 @@ DT.views.config = (function () {
     el.querySelector('#cf-reset').addEventListener('click', async () => {
       const r = await ui.confirmar({ titulo: 'Restaurar padrão', mensagem: 'Os parâmetros voltam ao padrão inicial do projeto (20 janelas, 2 atendimentos por hora).', ok: 'Restaurar' });
       if (!r.ok) return;
-      DT.db.set('settings', JSON.parse(JSON.stringify(DT.DEFAULT_SETTINGS)));
+      DT.db.set('settings', Object.assign(JSON.parse(JSON.stringify(DT.DEFAULT_SETTINGS)), { localCD: DT.db.settings().localCD || null }));
       DT.audit.registrar('Restaurou parâmetros padrão', 'Configuração', 'Todos', null, null);
       ui.toast('Parâmetros restaurados.'); desenhar();
     });

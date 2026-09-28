@@ -37,7 +37,7 @@ DT.db = (function () {
     try { window.localStorage.removeItem(P + chave); } catch (e) { /* ignora */ }
   }
 
-  const COLECOES = ['users', 'perfis', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'meta'];
+  const COLECOES = ['users', 'perfis', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'meta', 'rastreio'];
 
   function get(col) { return ler(col); }
   function set(col, valor) {

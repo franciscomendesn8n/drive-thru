@@ -48,6 +48,7 @@ dados de demonstração ou apagar os agendamentos e começar a operação real.
 | Novo agendamento | Comercial | Digita o pedido → dados do ERP → escolhe data e janela → confirmação |
 | Agenda de retiradas | todos | Agenda visual por janela, vagas, status, alertas, reagendar/cancelar |
 | Preparação | Logística | Agendado → Em preparação → Separado → Conferido → Faturado → Pronto |
+| Mapa de chegadas | Logística | Clientes a caminho no mapa, distância, previsão de chegada, alerta de aproximação e simulação |
 | Check-in | Logística | Chegada do cliente com horário automático (manual só com permissão) |
 | Atendimento | Logística | Doca, responsáveis, início do atendimento e do carregamento |
 | Entrega | Logística | Hora da entrega automática, responsável, encerramento |
@@ -116,6 +117,30 @@ agendada → em separação → conferido e faturado → pronto para retirada �
 - O código não revela o número do pedido; o QR Code é gerado localmente (`js/vendor/qrcode.js`, licença MIT).
 - Em produção, o link precisa apontar para um servidor acessível pela internet, e o aviso pode ir também por WhatsApp/SMS.
 
+## Cliente a caminho (localização e mapa)
+
+Na página de acompanhamento, no dia da retirada, o cliente toca em **Estou a caminho** e autoriza o
+navegador a compartilhar a localização. A equipe acompanha em **Operação › Mapa de chegadas**.
+
+- O pedido passa sozinho para **Cliente a caminho** (linha do tempo e auditoria registram "Cliente").
+- O mapa mostra o CD, o raio de alerta, cada cliente, o trajeto percorrido, a distância e a previsão
+  de chegada (distância pelas ruas ≈ 1,35 × linha reta ÷ velocidade média).
+- Ao entrar no raio (padrão 2 km), quem tem permissão de check-in recebe um aviso com som.
+  As filas da operação mostram "1,8 km · ~4 min".
+- A posição é enviada a cada 15 s (ou antes, se o cliente andar mais de 100 m). A página tenta manter
+  a tela ligada; se o cliente bloquear o celular, o envio para até ele voltar à página.
+- **Privacidade:** só com a autorização do cliente, só no dia da retirada, só para a equipe. A posição é
+  apagada no check-in, cancelamento, não comparecimento ou conclusão (gatilho no banco) e após 6 horas.
+  O cliente pode tocar em **Parar** a qualquer momento.
+- **Local do CD:** definido no próprio mapa (localização atual, clique no mapa ou busca de endereço).
+  Em Configurações: ligar/desligar o recurso e o raio do alerta.
+- **Simular (demonstração):** em "Aguardando hoje", faz um cliente percorrer ~6 km até o CD em cerca de
+  1 min e meio, pelo mesmo caminho do celular real.
+- Supabase: tabela `dt_rastreio` (só leitura para quem faz check-in / vê dashboard; anônimo sem acesso),
+  funções `dt_enviar_localizacao` e `dt_parar_localizacao` (pelo código de acompanhamento).
+- Mapa: Leaflet (licença BSD-2, em `js/vendor/`) com mapas do OpenStreetMap. Para alto volume, usar
+  um provedor de mapas contratado.
+
 ## Regras implementadas
 
 - Antecedência mínima de 1 hora (configurável).
@@ -140,7 +165,9 @@ js/utils.js              datas, formatação, hash de senha, CSV
 js/storage.js            camada de dados (memória + localStorage no modo local)
 js/nuvem.js              Supabase: login, carga, gravação e tempo real
 js/lgpd.js               termo LGPD exibido após o login (texto e aceite)
-js/vendor/               bibliotecas incluídas (supabase-js e QR Code, licença MIT)
+js/rastreio.js           cliente a caminho: distância, previsão, alerta e simulação
+js/views-mapa.js         tela Mapa de chegadas
+js/vendor/               bibliotecas incluídas (supabase-js e QR Code: MIT; Leaflet: BSD-2)
 js/erp.js                integração com ERP (hoje: base simulada)
 js/services.js           regras de negócio, alertas e indicadores
 js/seed.js               usuários iniciais e dados de demonstração

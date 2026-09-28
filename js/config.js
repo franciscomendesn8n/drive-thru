@@ -8,7 +8,7 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.3.4',
+  versao: '0.4.0',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10,
   /* Responsável pelo projeto — exibido na barra superior, antes do relógio */
@@ -33,7 +33,10 @@ DT.DEFAULT_SETTINGS = {
   docas: ['Doca 14 - Drive Thru', 'Doca 15 - Drive Thru'],
   unidade: 'CD - Unidade Principal',
   lgpdModo: 'cada_login',        // 'cada_login' ou 'uma_vez' (uma vez por versão do termo)
-  lgpdEncarregado: ''            // contato do Encarregado de Dados (DPO), exibido no termo
+  lgpdEncarregado: '',           // contato do Encarregado de Dados (DPO), exibido no termo
+  rastreioAtivo: true,           // cliente pode compartilhar a localização a caminho do Drive Thru
+  localCD: null,                 // { lat, lng, endereco } — ponto de chegada exibido no mapa
+  raioChegadaKm: 2               // distância para o alerta "cliente chegando"
 };
 
 /* Status operacionais (item 9 do escopo) */
@@ -140,6 +143,7 @@ DT.MENU = [
   ]},
   { grupo: 'Operação', itens: [
     { id: 'preparacao', label: 'Preparação', icon: 'box', perm: 'preparacao.alterar' },
+    { id: 'mapa', label: 'Mapa de chegadas', icon: 'map', perm: 'checkin.registrar' },
     { id: 'checkin', label: 'Check-in', icon: 'pin', perm: 'checkin.registrar' },
     { id: 'atendimento', label: 'Atendimento', icon: 'truck', perm: 'atendimento.registrar' },
     { id: 'entrega', label: 'Entrega', icon: 'check', perm: 'entrega.finalizar' },

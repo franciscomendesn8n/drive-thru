@@ -138,7 +138,8 @@ DT.app = (function () {
       preparacao: ags.filter(a => a.data === hoje && G.finalizados.indexOf(a.status) < 0 && DT.ag.prepAtual(a) !== S.PRONTO).length,
       checkin: ags.filter(a => a.data === hoje && G.ativosPreChegada.indexOf(a.status) >= 0).length,
       atendimento: ags.filter(a => a.status === S.CHEGOU).length,
-      entrega: ags.filter(a => a.status === S.EM_ATENDIMENTO || a.status === S.CARREGANDO).length
+      entrega: ags.filter(a => a.status === S.EM_ATENDIMENTO || a.status === S.CARREGANDO).length,
+      mapa: DT.rastreio ? DT.rastreio.ativos().length : 0
     };
   }
   function montarShell() {
@@ -315,6 +316,8 @@ DT.app = (function () {
 
   async function boot() {
     aplicarTema();
+    // posição nova de cliente a caminho: atualiza o contador do menu
+    DT.rastreio.aoMudar(() => { if (document.getElementById('nav') && DT.auth.usuarioAtual()) montarMenu(); });
     if (DT.db.modoNuvem()) {
       DT.nuvem.aoMudar(atualizarPorMudanca);
       DT.nuvem.aoEncerrarSessao(() => {

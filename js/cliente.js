@@ -11,6 +11,8 @@ DT.cliente = (function () {
   const U = DT.util, ui = DT.ui, esc = U.esc, S = DT.STATUS;
   let root, codigoAtual = null, timer = null, ultimoPronto = null, audioCtx = null, avisosAtivos = false;
   let agAtual = null, unidadeAtual = '', semConexao = false, carregado = false;
+  /* compartilhamento da localização a caminho do Drive Thru */
+  const rast = { ativo: false, watchId: null, ultimoEnvio: 0, ultimaEnviada: null, ultimaPos: null, erro: null, aviso: null, wake: null, enviados: 0, timer: null, enviando: false };
   const nuvem = () => DT.db.modoNuvem();
   const tituloBase = 'Acompanhe sua retirada · Drive Thru';
 
@@ -95,6 +97,144 @@ DT.cliente = (function () {
     ui.toast(msg);
   }
 
+  /* ---------- "Estou a caminho": localização compartilhada ---------- */
+  function rastreioCfg(ag) {
+    if (nuvem()) {
+      const r = ag.rastreio || {};
+      return { ativo: r.ativo !== false, cd: r.cd && isFinite(r.cd.lat) ? { lat: Number(r.cd.lat), lng: Number(r.cd.lng) } : null, compartilhando: !!r.compartilhando };
+    }
+    const cfg = DT.db.settings();
+    return { ativo: cfg.rastreioAtivo !== false, cd: cfg.localCD || null, compartilhando: DT.rastreio.compartilhando(ag.id) };
+  }
+  function podeRastrear(ag) {
+    return rastreioCfg(ag).ativo && DT.STATUS_GRUPOS.ativosPreChegada.indexOf(ag.status) >= 0 && ag.data === U.dataISO();
+  }
+  async function pedirTelaLigada() {
+    try { if ('wakeLock' in navigator && document.visibilityState === 'visible') rast.wake = await navigator.wakeLock.request('screen'); } catch (e) { /* não suportado */ }
+  }
+  function soltarTela() { try { if (rast.wake) rast.wake.release(); } catch (e) { /* ignora */ } rast.wake = null; }
+
+  function iniciarRastreio() {
+    rast.erro = null; rast.aviso = null;
+    if (!('geolocation' in navigator)) { rast.erro = 'Este navegador não informa a localização. Tente pelo Chrome ou Safari do celular.'; desenhar(); return; }
+    if (!window.isSecureContext) { rast.erro = 'A localização só funciona em endereço seguro (https).'; desenhar(); return; }
+    rast.ativo = true; rast.ultimoEnvio = 0; rast.ultimaEnviada = null; rast.enviados = 0;
+    desenhar();
+    rast.watchId = navigator.geolocation.watchPosition(aoReceberPosicao, aoFalharPosicao, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+    clearInterval(rast.timer);
+    rast.timer = setInterval(processarPosicao, 4000);   // o GPS parado pode ficar sem novos eventos
+    pedirTelaLigada();
+  }
+  function pararRastreio(avisarServidor, aviso, semDesenhar) {
+    if (rast.watchId != null) { try { navigator.geolocation.clearWatch(rast.watchId); } catch (e) { /* ignora */ } }
+    clearInterval(rast.timer);
+    rast.watchId = null; rast.ativo = false; rast.ultimaPos = null; rast.enviando = false;
+    soltarTela();
+    if (aviso !== undefined) rast.aviso = aviso;
+    const cod = codigoAtual;
+    if (avisarServidor && cod) {
+      DT.rastreio.parar(cod).then(() => {
+        if (agAtual && agAtual.rastreio) agAtual.rastreio.compartilhando = false;
+        if (!semDesenhar && root && agAtual && codigoAtual === cod) desenhar();
+      }, () => {});
+    }
+    if (!semDesenhar && root && agAtual) desenhar();
+  }
+  async function aoReceberPosicao(p) {
+    if (!rast.ativo) return;
+    const pos = { lat: p.coords.latitude, lng: p.coords.longitude, precisao: Math.round(p.coords.accuracy || 0),
+      velocidade: p.coords.speed == null || isNaN(p.coords.speed) ? null : p.coords.speed,
+      rumo: p.coords.heading == null || isNaN(p.coords.heading) ? null : p.coords.heading };
+    rast.ultimaPos = pos;
+    processarPosicao();
+  }
+  /* Decide se envia agora: primeira posição, a cada 15 s, ou antes se andou mais de 100 m */
+  async function processarPosicao() {
+    const pos = rast.ultimaPos;
+    if (!rast.ativo || !pos || rast.enviando) return;
+    const agora = Date.now();
+    const moveu = rast.ultimaEnviada ? DT.rastreio.distanciaKm(rast.ultimaEnviada, pos) : 1;
+    const enviar = !rast.ultimaEnviada || agora - rast.ultimoEnvio >= 15000 || (moveu > 0.1 && agora - rast.ultimoEnvio >= 4000);
+    if (!enviar) { desenharRastreio(); return; }
+    rast.ultimoEnvio = agora;
+    rast.enviando = true;
+    try {
+      const r = await DT.rastreio.enviar(codigoAtual, pos, false);
+      if (r && r.ok === false) {
+        if (r.erro === 'encerrado') pararRastreio(false, 'Sua chegada já foi registrada. Obrigado!');
+        else if (r.erro === 'outro_dia') pararRastreio(false, 'O compartilhamento só funciona no dia da retirada.');
+        else rast.erro = 'Não foi possível enviar a localização agora.';
+      } else {
+        rast.erro = null;
+        rast.ultimaEnviada = pos;
+        rast.enviados++;
+        if (rast.enviados === 1) { atualizar(); return; }   // mostra o novo status "a caminho"
+      }
+    } catch (e) {
+      rast.erro = 'Sem conexão com a internet. Continuaremos tentando.';
+    } finally { rast.enviando = false; }
+    desenharRastreio();
+  }
+  function aoFalharPosicao(e) {
+    if (e && e.code === 1) {
+      pararRastreio(false);
+      rast.erro = 'Você não permitiu o acesso à localização. Para compartilhar, libere a localização deste site nas configurações do navegador e toque de novo em "Estou a caminho".';
+      desenhar();
+      return;
+    }
+    rast.erro = 'Sinal de GPS fraco. Continuaremos tentando.';
+    desenharRastreio();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && rast.ativo) { pedirTelaLigada(); rast.ultimoEnvio = 0; }
+  });
+
+  function cardRastreio(ag) {
+    if (!podeRastrear(ag)) return '';
+    const cfg = rastreioCfg(ag);
+    const prep = DT.ag.prepAtual(ag);
+    let corpo;
+    if (rast.ativo) {
+      const pos = rast.ultimaPos;
+      const dist = cfg.cd && pos ? DT.rastreio.distanciaKm(pos, cfg.cd) : null;
+      const eta = dist == null ? null : DT.rastreio.etaMin(dist, { velocidade: pos.velocidade, trilha: [] });
+      corpo = '<div class="cli-rast-on"><span class="cli-pulse">' + ui.icon('nav') + '</span><div><b>Compartilhando sua localização</b>' +
+          '<p>' + (!pos ? 'Obtendo a sua posição…' : dist == null ? 'Nossa equipe está acompanhando a sua chegada.' :
+            'Você está a <b>' + DT.rastreio.fmtKm(dist) + '</b> do Drive Thru' + (eta ? ' · chegada em <b>' + DT.rastreio.fmtEta(eta) + '</b>' : ' · <b>chegando!</b>')) + '</p></div></div>' +
+        ui.notice('info', 'Deixe <b>esta página aberta na tela</b> durante o trajeto. Se bloquear o celular ou trocar de aplicativo, a atualização para até você voltar.', 'info') +
+        (rast.erro ? ui.notice('warn', esc(rast.erro)) : '') +
+        '<button type="button" class="btn ghost block" id="cli-parar">' + ui.icon('stop') + 'Parar de compartilhar</button>';
+    } else {
+      corpo = (cfg.compartilhando ?
+          '<div><b>O compartilhamento foi interrompido</b><p class="muted">A página foi fechada ou recarregada. Toque abaixo para continuar enviando a sua localização.</p></div>' :
+          '<div><b>Está vindo retirar?</b><p class="muted">Toque em "Estou a caminho" para a nossa equipe acompanhar a sua chegada e deixar tudo pronto na doca.</p></div>') +
+        (prep !== S.PRONTO ? ui.notice('warn', 'Seu pedido ainda está em preparação. Se puder, saia quando ele estiver pronto.') : '') +
+        (rast.aviso ? ui.notice('ok', esc(rast.aviso)) : '') +
+        (rast.erro ? ui.notice('crit', esc(rast.erro)) : '') +
+        '<button type="button" class="btn primary lg block" id="cli-caminho">' + ui.icon('nav') + (cfg.compartilhando ? 'Continuar compartilhando' : 'Estou a caminho') + '</button>' +
+        (cfg.compartilhando ? '<button type="button" class="btn link sm" id="cli-encerrar">Não quero mais compartilhar</button>' : '') +
+        '<p class="subtle cli-priv">' + ui.icon('lock') + '<span>Sua localização é usada só durante o trajeto até o Drive Thru e só pela nossa equipe. O compartilhamento para quando você chega (check-in) ou toca em "Parar", e a localização é apagada.</span></p>';
+    }
+    return '<section class="cli-card cli-rast' + (rast.ativo ? ' on' : '') + '" id="cli-rast">' + corpo + '</section>';
+  }
+  function ligarRastreio() {
+    const b = root.querySelector('#cli-caminho');
+    if (b) b.addEventListener('click', iniciarRastreio);
+    const p = root.querySelector('#cli-parar');
+    if (p) p.addEventListener('click', () => pararRastreio(true, 'Compartilhamento encerrado. Sua localização foi apagada.'));
+    const e = root.querySelector('#cli-encerrar');
+    if (e) e.addEventListener('click', () => pararRastreio(true, 'Compartilhamento encerrado. Sua localização foi apagada.'));
+  }
+  /* Atualiza só o quadro da localização (sem redesenhar a página inteira) */
+  function desenharRastreio() {
+    const box = root && root.querySelector('#cli-rast');
+    if (!box || !agAtual) { if (root && agAtual) desenhar(); return; }
+    const tmp = document.createElement('div');
+    tmp.innerHTML = cardRastreio(agAtual);
+    if (tmp.firstChild) { box.replaceWith(tmp.firstChild); ligarRastreio(); }
+    else box.remove();
+  }
+
   /* ---------- telas ---------- */
   function casca(conteudo) {
     return '<div class="cli">' +
@@ -163,6 +303,11 @@ DT.cliente = (function () {
 
   function desenhar() {
     const ag = agAtual;
+    if (ag && rast.ativo && !podeRastrear(ag)) {
+      const chegou = DT.STATUS_GRUPOS.ativosPreChegada.indexOf(ag.status) < 0;
+      pararRastreio(false, chegou ? 'Você chegou! O compartilhamento da localização foi encerrado.' : undefined);
+      return;
+    }
     if (!ag) { telaBusca(codigoAtual ? 'Link de acompanhamento inválido ou expirado.' : null); return; }
     const sit = situacao(ag);
     const et = etapas(ag);
@@ -186,6 +331,7 @@ DT.cliente = (function () {
         '<p class="muted" style="margin-top:10px">' + esc(ag.pedido.cliente) + ' · ' + esc(ag.pedido.qtdItens) + ' itens</p>' +
         (reag && !encerrado ? ui.notice('info', 'Horário alterado de ' + U.fmtData(reag.deData).slice(0, 5) + ' ' + reag.deHora + ' para <b>' + U.fmtData(ag.data).slice(0, 5) + ' ' + ag.hora + '</b>.') : '') +
       '</section>' +
+      (encerrado ? '' : cardRastreio(ag)) +
       (encerrado ? '' :
       '<section class="cli-card"><h2 class="cli-h2">Andamento</h2><ol class="cli-steps">' + et.map((e, i) =>
         '<li class="' + (e.feito ? 'feito' : '') + (i === atual && i < et.length - 1 ? ' atual' : '') + '">' +
@@ -204,6 +350,7 @@ DT.cliente = (function () {
     );
     const b = root.querySelector('#cli-avisar');
     if (b) b.addEventListener('click', ativarAvisos);
+    ligarRastreio();
 
     // dispara o aviso só na transição para "pronto" com a página aberta
     if (ultimoPronto === false && pronto) avisarPronto(ag);
@@ -213,13 +360,13 @@ DT.cliente = (function () {
   function render(container, codigo) {
     root = container;
     document.title = tituloBase;
-    if (codigo !== codigoAtual) { codigoAtual = codigo; ultimoPronto = null; agAtual = null; carregado = false; }
+    if (codigo !== codigoAtual) { if (rast.ativo) pararRastreio(true, undefined, true); rast.erro = null; rast.aviso = null; codigoAtual = codigo; ultimoPronto = null; agAtual = null; carregado = false; }
     clearInterval(timer);
     if (codigoAtual && nuvem() && !carregado) root.innerHTML = casca('<div class="cli-card"><div class="row"><span class="spinner"></span>Buscando o seu pedido…</div></div>');
     atualizar();
     if (codigoAtual) timer = setInterval(atualizar, nuvem() ? 10000 : 15000);
   }
-  function sair() { clearInterval(timer); clearInterval(piscar); codigoAtual = null; }
+  function sair() { if (rast.ativo) pararRastreio(true, undefined, true); clearInterval(timer); clearInterval(piscar); codigoAtual = null; }
 
   // outra aba (ex.: a Logística no mesmo computador) alterou os dados: atualiza na hora
   window.addEventListener('storage', e => { if (!nuvem() && codigoAtual && root && e.key && e.key.indexOf(DT.APP.storagePrefix) === 0) atualizar(); });

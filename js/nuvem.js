@@ -186,7 +186,21 @@ DT.nuvem = (function () {
     ids.funcionarios = new Set(funcs.map(r => r.id));
     ids.agendamentos = new Set(ags.map(r => r.id));
     ids.auditoria = new Set(auds.map(r => r.id));
+    await carregarRastreio();
     setStatus('sincronizado');
+  }
+  /* Localização dos clientes a caminho (só para perfis com permissão; RLS devolve vazio para os demais) */
+  function rastreioDeLinha(r) {
+    return { agId: r.agendamento_id, lat: r.lat, lng: r.lng, precisao: r.precisao, velocidade: r.velocidade, rumo: r.rumo,
+      simulado: r.simulado, inicio: r.inicio, atualizadoEm: r.atualizado_em, trilha: r.trilha || [] };
+  }
+  async function carregarRastreio() {
+    const mapa = {};
+    try {
+      const { data, error } = await sb.from('dt_rastreio').select('*');
+      if (!error) (data || []).forEach(r => { mapa[r.agendamento_id] = rastreioDeLinha(r); });
+    } catch (e) { /* tabela indisponível: segue sem mapa */ }
+    DT.db.memoria.gravar('rastreio', mapa);
   }
   async function recarregarUsuarios() {
     const usuarios = await buscarTudo(TAB.usuarios);
@@ -225,6 +239,13 @@ DT.nuvem = (function () {
     on(TAB.auditoria, p => { if (p.eventType === 'DELETE') aplicarLista('auditoria', null, p.old && p.old.id); else if (!ids.auditoria.has(p.new.id)) aplicarLista('auditoria', p.new.doc); avisar(); });
     on(TAB.funcionarios, p => { if (p.eventType === 'DELETE') aplicarLista('funcionarios', null, p.old && p.old.id); else aplicarLista('funcionarios', p.new.doc); avisar(); });
     on(TAB.config, p => { if (p.new && p.new.chave && !fila.has(TAB.config + ':' + p.new.chave)) { DT.db.memoria.gravar(p.new.chave, p.new.valor); avisar(); } });
+    on('dt_rastreio', p => {
+      const mapa = DT.db.memoria.ler('rastreio') || {};
+      if (p.eventType === 'DELETE') { if (p.old && p.old.agendamento_id) delete mapa[p.old.agendamento_id]; }
+      else if (p.new) mapa[p.new.agendamento_id] = rastreioDeLinha(p.new);
+      DT.db.memoria.gravar('rastreio', mapa);
+      if (DT.rastreio) DT.rastreio.mudou();
+    });
     on(TAB.usuarios, () => { recarregarUsuarios().then(avisar).catch(() => {}); });
     canal.subscribe(st => {
       estadoCanal = st;
@@ -336,7 +357,7 @@ DT.nuvem = (function () {
     try { await sb.auth.signOut(); } catch (e) { try { await sb.auth.signOut({ scope: 'local' }); } catch (e2) { /* ignora */ } }
     saindo = false;
     sessao = null;
-    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta'].forEach(k => DT.db.memoria.gravar(k, null));
+    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio'].forEach(k => DT.db.memoria.gravar(k, null));
   }
 
   /* ---------------------------- funções de servidor ---------------------------- */
@@ -366,11 +387,27 @@ DT.nuvem = (function () {
     return data;
   }
 
+  /* Página do cliente: envia / para o compartilhamento da localização */
+  async function enviarLocalizacao(codigo, pos, simulado) {
+    cliente();
+    const { data, error } = await sb.rpc('dt_enviar_localizacao', { p_codigo: codigo, p_lat: pos.lat, p_lng: pos.lng,
+      p_precisao: pos.precisao == null ? null : pos.precisao, p_velocidade: pos.velocidade == null ? null : pos.velocidade,
+      p_rumo: pos.rumo == null ? null : pos.rumo, p_simulado: !!simulado });
+    if (error) throw error;
+    return data || { ok: false };
+  }
+  async function pararLocalizacao(codigo) {
+    cliente();
+    const { error } = await sb.rpc('dt_parar_localizacao', { p_codigo: codigo });
+    if (error) throw error;
+    return true;
+  }
+
   window.addEventListener('beforeunload', e => {
     if (fila.size) { e.preventDefault(); e.returnValue = ''; }
   });
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
     sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
-    gerenciarUsuario, acompanhar, acompanharPorPedido, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
+    gerenciarUsuario, acompanhar, acompanharPorPedido, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
 })();

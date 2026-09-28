@@ -109,7 +109,7 @@ DT.ui = (function () {
   }
 
   /* --------------------------- Toast --------------------------- */
-  function toast(msg, tipo) {
+  function toast(msg, tipo, duracaoMs) {
     let box = document.querySelector('.toasts');
     if (!box) { box = document.createElement('div'); box.className = 'toasts'; box.setAttribute('role', 'status'); document.body.appendChild(box); }
     const t = document.createElement('div');
@@ -117,7 +117,7 @@ DT.ui = (function () {
     t.innerHTML = icon(tipo === 'err' ? 'alert' : tipo === 'warn' ? 'alert' : 'check') + '<div>' + esc(msg) + '</div>';
     box.appendChild(t);
     while (box.children.length > 3) box.firstElementChild.remove();
-    setTimeout(() => t.remove(), tipo === 'err' ? 6000 : 3600);
+    setTimeout(() => t.remove(), duracaoMs || (tipo === 'err' ? 6000 : 3600));
   }
 
   /* --------------------------- Modal --------------------------- */

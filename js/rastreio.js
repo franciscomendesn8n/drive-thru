@@ -170,7 +170,7 @@ DT.rastreio = (function () {
       if (!i.noRaio || i.perdido || alertados.has(i.ag.id)) return;
       alertados.add(i.ag.id);
       bip();
-      DT.ui.toast('Cliente chegando: ' + i.ag.pedido.cliente + ' (pedido ' + i.ag.pedido.numero + ') — a ' + fmtKm(i.dist) + ', ' + fmtEta(i.eta) + '. Horário agendado: ' + i.ag.hora + '.', 'warn');
+      DT.ui.toast('Cliente chegando: ' + i.ag.pedido.cliente + ' (pedido ' + i.ag.pedido.numero + ') — a ' + fmtKm(i.dist) + ', ' + fmtEta(i.eta) + '. Horário agendado: ' + i.ag.hora + '.', 'warn', 12000);
     });
   }
 

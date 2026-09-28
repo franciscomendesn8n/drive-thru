@@ -35,7 +35,7 @@ DT.views.mapa = (function () {
           '<span class="qm"><b>' + esc(ag.pedido.cliente) + '</b>' +
             '<span class="row">' + ui.tag(ag.pedido.numero, false) + '<span class="subtle">agendado ' + ag.hora + '</span>' + estado +
               (i.r.simulado ? '<span class="tag sim">simulação</span>' : '') + '</span>' +
-            '<span class="subtle">' + (pronto ? '<span class="ok-txt">Pedido pronto</span>' : '<span class="crit-txt">Pedido ainda em ' + esc(DT.ag.prepAtual(ag).toLowerCase()) + '</span>') +
+            '<span class="subtle">' + (pronto ? '<span class="ok-txt">Pedido pronto</span>' : '<span class="crit-txt">Pedido ainda não está pronto (' + esc(DT.ag.prepAtual(ag)) + ')</span>') +
               ' · posição atualizada ' + idade(i.idadeMin) + '</span></span>' +
         '</button>' +
         '<div class="mp-item-acoes">' +

@@ -157,6 +157,9 @@ DT.app = (function () {
             '<button type="button" class="icon-btn menu-btn" id="btn-menu" aria-label="Abrir menu">' + ui.icon('menu') + '</button>' +
             '<div class="topbar-title"><span class="eyebrow" id="tb-eyebrow"></span><h1 id="tb-title"></h1></div>' +
             '<div class="topbar-right">' +
+              (DT.APP.responsavel ? '<div class="responsavel" title="' + esc(DT.APP.responsavel.papel + ': ' + DT.APP.responsavel.nome) + '">' +
+                '<img src="' + esc(DT.APP.responsavel.foto) + '" alt="Foto de ' + esc(DT.APP.responsavel.nome) + '" width="38" height="38">' +
+                '<div><span>' + esc(DT.APP.responsavel.papel) + '</span><b>' + esc(DT.APP.responsavel.nome) + '</b></div></div>' : '') +
               '<div class="clock"><b id="clk-h"></b><span id="clk-d"></span></div>' +
               '<button type="button" class="icon-btn" id="btn-tema" aria-label="Alternar tema claro/escuro" title="Tema claro/escuro">' + ui.icon('moon') + '</button>' +
               '<div class="user-chip"><div class="avatar">' + esc(ui.iniciais(u.nome)) + '</div><div class="who"><b>' + esc(u.nome) + '</b><span>' + esc(u.perfilNome) + '</span></div>' +

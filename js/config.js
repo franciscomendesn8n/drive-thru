@@ -8,9 +8,11 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.3.3',
+  versao: '0.3.4',
   storagePrefix: 'dt_app_v1_',
-  sessaoHoras: 10
+  sessaoHoras: 10,
+  /* Responsável pelo projeto — exibido na barra superior, antes do relógio */
+  responsavel: { nome: 'Francisco Mendes', papel: 'Responsável pelo projeto', foto: 'img/responsavel.jpg?v=13' }
 };
 
 /* Parâmetros operacionais (padrão inicial do projeto).

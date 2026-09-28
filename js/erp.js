@@ -39,8 +39,11 @@ DT.ERP = (function () {
       const linhas = opts.linhas || (2 + Math.floor(r() * 4));
       const itens = [];
       let valor = 0;
+      if (opts.itens) {   // itens definidos (pedidos de apresentação)
+        opts.itens.forEach(i => { itens.push({ sku: i[0], descricao: i[1], qtd: i[2], un: i[3] }); valor += i[2] * i[4]; });
+      }
       const usados = new Set();
-      for (let i = 0; i < linhas; i++) {
+      for (let i = 0; i < (opts.itens ? 0 : linhas); i++) {
         let p = pick(PRODUTOS);
         while (usados.has(p[0])) p = pick(PRODUTOS);
         usados.add(p[0]);
@@ -60,7 +63,7 @@ DT.ERP = (function () {
         dataPedido: U.addDias(dataBase, -diasAtras),
         horaPedido: hora,
         cliente: cli[0],
-        telefone: cli[1],
+        telefone: opts.telefone || cli[1],
         qtdItens: qtdItens,
         valor: opts.valor || Math.round(valor * 100) / 100,
         vendedor: opts.vendedor || pick(VENDEDORES),
@@ -87,10 +90,36 @@ DT.ERP = (function () {
     base[125900] = montar(125900, { cliente: 'Construtora Planalto', diasAtras: 0, elegivel: false, motivo: 'Pedido com entrega programada (frete pela empresa).' });
     base[125901] = montar(125901, { cliente: 'Obra Certa', diasAtras: 0, elegivel: false, faturado: false, pagamento: 'Boleto', situacao: 'Aguardando aprovação', motivo: 'Pagamento pendente de aprovação financeira.' });
     base[125902] = montar(125902, { cliente: 'Reforma Já', diasAtras: 1, elegivel: false, situacao: 'Cancelado', motivo: 'Pedido cancelado no ERP.' });
+
+    // Pedidos para a apresentação à diretoria (processo completo, do zero).
+    // 130001 = pedido da apresentação · 130002 = reserva para ensaio
+    const ITENS_APRESENTACAO = [
+      ['100231', 'Cimento CP-II 50kg', 20, 'SC', 38.90],
+      ['100874', 'Argamassa AC-II 20kg', 10, 'SC', 24.50],
+      ['200145', 'Tijolo cerâmico 8 furos (milheiro)', 2, 'MIL', 890.00],
+      ['100512', 'Areia média ensacada 20kg', 30, 'SC', 7.90],
+      ['300088', 'Vergalhão CA-50 10mm 12m', 12, 'BR', 54.90]
+    ];
+    [130001, 130002].forEach(n => {
+      base[n] = montar(n, { cliente: 'Jose Carlos Milito', telefone: '(61) 98765-2026', vendedor: 'Inácio Sardinha',
+        pagamento: 'PIX', situacao: 'Aprovado', faturado: false, diasAtras: 0, itens: ITENS_APRESENTACAO });
+      base[n].apresentacao = true;
+    });
     return base;
   }
 
   let cache = null;
+
+  /* Pedidos de apresentação: a venda aparece como feita hoje, 30 min antes da consulta */
+  function atualizarApresentacao(p) {
+    if (!p || !p.apresentacao) return p;
+    const agora = new Date();
+    const min = Math.max(7 * 60, agora.getHours() * 60 + agora.getMinutes() - 30);
+    p.dataPedido = U.dataISO(agora);
+    p.horaPedido = U.hmDeMinutos(Math.min(min, 23 * 60 + 59));
+    delete p.apresentacao;
+    return p;
+  }
   function base() {
     if (!cache) cache = gerarBase(DT.db.meta().seedDate || U.dataISO());
     return cache;
@@ -135,6 +164,7 @@ DT.ERP = (function () {
     // modo simulado: pequena espera para parecer uma consulta real
     await new Promise(res => setTimeout(res, 250));
     let p = base()[numero];
+    if (p) return atualizarApresentacao(JSON.parse(JSON.stringify(p)));
     // Somente na demonstração: pedidos do histórico gerado também são "encontrados"
     if (!p) {
       const hist = DT.db.agendamentos().find(a => a.pedido.numero === numero);
@@ -145,7 +175,7 @@ DT.ERP = (function () {
 
   function buscarPedidoSync(numero) {
     const p = base()[String(numero)];
-    return p ? JSON.parse(JSON.stringify(p)) : null;
+    return p ? atualizarApresentacao(JSON.parse(JSON.stringify(p))) : null;
   }
 
   function funcionariosDemo() { return VENDEDORES; }

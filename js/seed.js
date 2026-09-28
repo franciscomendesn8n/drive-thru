@@ -13,6 +13,7 @@ DT.seed = (function () {
     { login: 'admin', senha: 'admin123', nome: 'Francisco Mendes', perfil: 'admin', email: 'admin@empresa.com.br' },
     { login: 'joao.silva', senha: '123456', nome: 'João Silva', perfil: 'comercial', email: 'joao.silva@empresa.com.br' },
     { login: 'fernanda.rocha', senha: '123456', nome: 'Fernanda Rocha', perfil: 'comercial', email: 'fernanda.rocha@empresa.com.br' },
+    { login: 'inacio.sardinha', senha: '123456', nome: 'Inácio Sardinha', perfil: 'comercial', email: 'inacio.sardinha@empresa.com.br' },
     { login: 'ana.santos', senha: '123456', nome: 'Ana Santos', perfil: 'logistica', email: 'ana.santos@empresa.com.br' },
     { login: 'carlos.lima', senha: '123456', nome: 'Carlos Lima', perfil: 'logistica', email: 'carlos.lima@empresa.com.br' },
     { login: 'gestor', senha: '123456', nome: 'Roberto Almeida', perfil: 'gestor', email: 'roberto.almeida@empresa.com.br' }
@@ -22,7 +23,8 @@ DT.seed = (function () {
     ['Pedro Alves', 'Operador de empilhadeira', 'Logística'], ['Marcos Rocha', 'Auxiliar de carga', 'Logística'],
     ['Juliana Costa', 'Conferente', 'Logística'], ['Diego Martins', 'Auxiliar de carga', 'Logística'],
     ['João Silva', 'Vendedor', 'Comercial'], ['Fernanda Rocha', 'Vendedora', 'Comercial'],
-    ['Marcelo Pires', 'Vendedor', 'Comercial'], ['Patrícia Lima', 'Vendedora', 'Comercial']
+    ['Marcelo Pires', 'Vendedor', 'Comercial'], ['Patrícia Lima', 'Vendedora', 'Comercial'],
+    ['Inácio Sardinha', 'Vendedor', 'Comercial']
   ];
 
   function usuariosIniciais() {

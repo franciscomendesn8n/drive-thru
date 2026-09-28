@@ -34,6 +34,7 @@ python -m http.server 8080
 | 123101 a 123116   | Já agendados hoje (vários status)         |
 | 125900 / 125901 / 125902 | Não elegíveis (motivos diferentes) |
 | 999999            | Inexistente                               |
+| 130001 / 130002   | Jose Carlos Milito · vendedor Inácio Sardinha — apresentação à diretoria (130002 = reserva para ensaio) |
 
 Na primeira abertura o sistema gera 14 dias de histórico e a agenda de hoje com base no horário atual,
 para que dashboard, alertas e relatórios já tenham dados. Em **Configurações** é possível recriar os

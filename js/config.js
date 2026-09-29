@@ -8,12 +8,12 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.5.0',
+  versao: '0.5.1',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10,
   /* Responsável pelo projeto — exibido na barra superior, antes do relógio */
   /* Empresa usuária — logo (PNG transparente, letras brancas) usada no menu, no acompanhamento do cliente e nos PDFs */
-  empresa: { nome: 'Condor', slogan: 'O Atacado da Construção', logo: 'img/logo-condor.png?v=16', cor: '#AE1917' },
+  empresa: { nome: 'Condor', slogan: 'O Atacado da Construção', logo: 'img/logo-condor.png?v=17', cor: '#AB0F14', fundo: '#303A42' },
   responsavel: { nome: 'Francisco Mendes', papel: 'Responsável pelo projeto', foto: 'img/responsavel.jpg?v=13' }
 };
 

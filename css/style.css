@@ -13,10 +13,10 @@
   --line: #D9E0EA;
   --line-2: #C5CFDC;
   /* Menu e topos seguem a identidade Condor: grafite + vermelho da logo */
-  --nav: #18191D;
-  --nav-2: #27292F;
-  --nav-ink: #C6C9D0;
-  --brand: #AE1917;
+  --nav: #303A42;
+  --nav-2: #3D4953;
+  --nav-ink: #D3D8DD;
+  --brand: #AB0F14;
   --nav-ink-strong: #FFFFFF;
   --accent: #1C5EC4;
   --accent-hover: #174FA6;
@@ -61,7 +61,7 @@
     color-scheme: dark;
     --bg: #0A1019; --surface: #111A26; --surface-2: #16212F; --surface-3: #1D2A3B;
     --ink: #E4EBF4; --ink-2: #A7B4C6; --ink-3: #75849A; --line: #223044; --line-2: #2E3F56;
-    --nav: #0E0F12; --nav-2: #1E2025; --nav-ink: #AEB2BB; --brand: #D0342C;
+    --nav: #303A42; --nav-2: #3D4953; --nav-ink: #C6CCD2; --brand: #AB0F14;
     --accent: #4E8EF7; --accent-hover: #6AA1FA; --accent-ink: #06111F; --accent-soft: #15284A;
     --signal: #F59A38; --signal-soft: #3A2710;
     --ok: #4CC47F; --ok-soft: #10301F; --warn: #F0B04A; --warn-soft: #362710; --crit: #F16A62; --crit-soft: #3A1614; --info: #4FC3DC; --info-soft: #0E2C35;
@@ -78,7 +78,7 @@
   color-scheme: dark;
   --bg: #0A1019; --surface: #111A26; --surface-2: #16212F; --surface-3: #1D2A3B;
   --ink: #E4EBF4; --ink-2: #A7B4C6; --ink-3: #75849A; --line: #223044; --line-2: #2E3F56;
-  --nav: #0E0F12; --nav-2: #1E2025; --nav-ink: #AEB2BB; --brand: #D0342C;
+  --nav: #303A42; --nav-2: #3D4953; --nav-ink: #C6CCD2; --brand: #AB0F14;
   --accent: #4E8EF7; --accent-hover: #6AA1FA; --accent-ink: #06111F; --accent-soft: #15284A;
   --signal: #F59A38; --signal-soft: #3A2710;
   --ok: #4CC47F; --ok-soft: #10301F; --warn: #F0B04A; --warn-soft: #362710; --crit: #F16A62; --crit-soft: #3A1614; --info: #4FC3DC; --info-soft: #0E2C35;
@@ -147,18 +147,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand-condor { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; color: var(--nav-ink); }
 .brand-condor img { display: block; width: 100%; max-width: 280px; height: auto; }
 .brand-app { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--nav-ink); padding-top: 8px; border-top: 2px solid var(--brand); }
-.brand-app .icon { width: 14px; height: 14px; color: #E0443C; }
+.brand-app .icon { width: 14px; height: 14px; color: #fff; }
 .brand-mark .logo { width: 52px; height: 52px; border-radius: 12px; background: var(--signal); display: grid; place-items: center; color: #1B1206; }
 .brand-mark .logo .icon { width: 30px; height: 30px; stroke-width: 2.1; }
 .brand-mark b { font-family: var(--font-display); font-size: 30px; letter-spacing: .03em; text-transform: uppercase; display: block; line-height: 1; }
 .brand-mark span { font-size: 13px; color: var(--nav-ink); }
 .login-brand h1 { color: var(--nav-ink-strong); font-size: clamp(34px, 4.2vw, 50px); max-width: 14ch; text-transform: uppercase; letter-spacing: .01em; }
-.login-brand h1 em { font-style: normal; color: #E0443C; }
+.login-brand h1 em { font-style: normal; color: #fff; background: var(--brand); padding: 0 .18em; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .login-brand p.lead { max-width: 46ch; font-size: 15px; }
 .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 560px; }
 .flow-step { border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px; padding: 10px 12px; background: rgba(255, 255, 255, .03); }
-.flow-step b { display: block; font-family: var(--font-mono); font-size: 11px; color: #E0443C; }
-.flow-step span { color: var(--nav-ink-strong); font-size: 13px; font-weight: 500; }
+.flow-step b { display: block; width: fit-content; font-family: var(--font-mono); font-size: 10.5px; color: #fff; background: var(--brand); border-radius: 3px; padding: 0 5px; margin-bottom: 3px; }
+.flow-step span { display: block; color: var(--nav-ink-strong); font-size: 13px; font-weight: 500; }
 .flow-step small { display: block; font-size: 11px; color: var(--nav-ink); }
 .login-panel { display: grid; place-items: center; padding: 40px 24px; background: var(--bg); }
 .login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 22px; }

@@ -9,8 +9,8 @@ window.DT = window.DT || {};
 DT.relatorioPDF = (function () {
   /* Cores da identidade (logo Condor) */
   const COR = {
-    grafite: [24, 25, 29],       // faixa do cabeçalho / cabeçalho da tabela
-    vermelho: [174, 25, 23],     // #AE1917 — onda da logo
+    grafite: [48, 58, 66],       // #303A42 — cinza oficial: faixa do cabeçalho / cabeçalho da tabela
+    vermelho: [171, 15, 20],     // #AB0F14 — vermelho oficial da logo
     tinta: [30, 32, 38],
     tinta2: [92, 97, 108],
     tinta3: [138, 143, 153],
@@ -84,16 +84,16 @@ DT.relatorioPDF = (function () {
 
     doc.setTextColor(255, 255, 255);
     if (completo) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(198, 201, 208);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(211, 216, 221);
       doc.text('RELATÓRIO DRIVE THRU · AGENDAMENTO DE RETIRADA', W - 14, 10, { align: 'right', charSpace: 0.3 });
       doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(255, 255, 255);
       doc.text(o.titulo, W - 14, 18, { align: 'right' });
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(198, 201, 208);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(211, 216, 221);
       doc.text('Período: ' + o.periodo, W - 14, 24, { align: 'right' });
     } else {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
       doc.text(o.titulo, W - 14, 7.5, { align: 'right' });
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(198, 201, 208);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(211, 216, 221);
       doc.text(o.periodo + ' (continuação)', W - 14, 12, { align: 'right' });
     }
     return H + 1.4;

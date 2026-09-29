@@ -311,9 +311,10 @@ DT.views.relatorios = (function () {
             '<div class="field"><label for="rl-sit">Situação do atendimento</label><select id="rl-sit" class="select">' + ui.options(['No horário', 'Antecipado', 'Atrasado', 'Pendente', 'Não compareceu', 'Cancelado'], f.situacao, 'Todas') + '</select></div>' +
             '<button type="submit" class="btn primary">' + ui.icon('chart') + 'Gerar relatório</button>' +
           '</div></form></section>' +
-          '<section class="card"><div class="card-head"><h3>' + esc(tipo.label) + '</h3><span class="subtle">' + U.fmtData(f.de) + ' a ' + U.fmtData(f.ate) + '</span><span class="spacer"></span>' +
+          '<section class="card"><div class="card-head rl-head"><div class="stack" style="gap:2px"><h3>' + esc(tipo.label) + '</h3><span class="subtle">' + U.fmtData(f.de) + ' a ' + U.fmtData(f.ate) + '</span></div><span class="spacer"></span><div class="row rl-acoes" style="gap:8px;flex-wrap:wrap">' +
             '<button type="button" class="btn ghost sm" id="rl-copiar">' + ui.icon('copy', 'icon-sm') + 'Copiar</button>' +
-            '<button type="button" class="btn primary sm" id="rl-csv">' + ui.icon('download', 'icon-sm') + 'Exportar CSV</button></div>' +
+            '<button type="button" class="btn ghost sm" id="rl-csv">' + ui.icon('download', 'icon-sm') + 'Exportar CSV</button>' +
+            '<button type="button" class="btn primary sm" id="rl-pdf">' + ui.icon('download', 'icon-sm') + 'Exportar PDF</button></div></div>' +
             '<div class="card-body"><div class="stat-strip">' + res.resumo.map(r => '<div class="stat"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>').join('') + '</div>' +
             (res.barras && res.barras.itens.length ? '<div class="stack" style="gap:8px"><span class="label">' + esc(res.barras.titulo) + '</span><div class="bars">' + res.barras.itens.map(b =>
               '<div class="bar-row"><span class="mono">' + esc(b.rot) + '</span><div class="bar-track"><div class="bar-fill ' + (b.cls || '') + '" style="width:' + Math.max(2, b.pct) + '%"></div></div><span class="mono subtle" style="text-align:right">' + esc(b.txt) + '</span></div>').join('') + '</div></div>' : '') +
@@ -344,6 +345,26 @@ DT.views.relatorios = (function () {
     el.querySelector('#rl-csv').addEventListener('click', () => {
       const ok = ui.baixarCSV('drive-thru_' + filtros.tipo + '_' + filtros.de + '_' + filtros.ate + '.csv', csv());
       ui.toast(ok ? 'Arquivo CSV gerado.' : 'Não foi possível baixar o arquivo aqui. Use "Copiar".', ok ? 'ok' : 'warn');
+    });
+    el.querySelector('#rl-pdf').addEventListener('click', async ev => {
+      const btn = ev.currentTarget;
+      if (!DT.relatorioPDF || !DT.relatorioPDF.disponivel()) { ui.toast('Gerador de PDF indisponível. Recarregue a página.', 'warn'); return; }
+      const u = DT.auth.usuarioAtual();
+      btn.disabled = true;
+      try {
+        await DT.relatorioPDF.gerar({
+          tipo: f.tipo, titulo: tipo.label, periodo: U.fmtData(f.de) + ' a ' + U.fmtData(f.ate),
+          filtros: [['Pedido', f.pedido], ['Cliente', f.cliente], ['Vendedor', f.vendedor], ['Resp. carregamento', f.carregamento], ['Status', f.status],
+            ['Horário', f.hora], ['Doca', f.doca], ['Situação', f.situacao]],
+          resumo: res.resumo, barras: res.barras, colunas: res.colunas, linhas: res.linhas,
+          usuario: u ? u.nome : '', unidade: DT.db.settings().unidade,
+          arquivo: 'drive-thru_' + f.tipo + '_' + f.de + '_' + f.ate + '.pdf'
+        });
+        ui.toast('Arquivo PDF gerado.', 'ok');
+      } catch (e) {
+        console.error(e);
+        ui.toast('Não foi possível gerar o PDF.', 'err');
+      } finally { btn.disabled = false; }
     });
     el.querySelector('#rl-copiar').addEventListener('click', async () => {
       const txt = csv().replace(/^﻿/, '').replace(/;/g, '\t');

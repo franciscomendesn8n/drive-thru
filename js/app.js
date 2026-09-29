@@ -36,7 +36,7 @@ DT.app = (function () {
     root.innerHTML =
       '<div class="login">' +
         '<section class="login-brand">' +
-          '<div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div>' +
+          ui.marca() +
           '<h1>Agendamento e controle da <em>retirada</em></h1>' +
           '<p class="lead">Do pedido agendado pelo Comercial até a mercadoria carregada no veículo do cliente, com cada etapa registrada.</p>' +
           '<div class="flow">' + passos.map((p, i) => '<div class="flow-step"><b>' + String(i + 1).padStart(2, '0') + '</b><span>' + p[0] + '</span><small>' + p[1] + '</small></div>').join('') + '</div>' +
@@ -148,7 +148,7 @@ DT.app = (function () {
     root.innerHTML =
       '<div class="shell" id="shell">' +
         '<aside class="sidebar" id="sidebar" aria-label="Menu principal">' +
-          '<div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div>' +
+          ui.marca() +
           '<nav id="nav"></nav>' +
           '<div class="sidebar-foot"><span>' + esc(DT.db.settings().unidade) + '</span><span>v' + DT.APP.versao + (DT.db.estaPersistindo() ? '' : ' · dados só nesta sessão') + '</span>' +
             (DT.db.modoNuvem() ? '<span id="nuvem-status" class="nuvem-status" data-s="' + DT.nuvem.statusAtual() + '">Nuvem: sincronizado</span>' : '<span class="nuvem-status" data-s="local">Modo local (dados neste navegador)</span>') + '</div>' +
@@ -299,7 +299,7 @@ DT.app = (function () {
   }
 
   function telaCarregando(msg) {
-    document.getElementById('app').innerHTML = '<div class="carregando"><div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div>' +
+    document.getElementById('app').innerHTML = '<div class="carregando">' + ui.marca() +
       '<div class="row" style="gap:10px"><span class="spinner"></span><span>' + esc(msg) + '</span></div></div>';
   }
 

@@ -238,7 +238,7 @@ DT.cliente = (function () {
   /* ---------- telas ---------- */
   function casca(conteudo) {
     return '<div class="cli">' +
-      '<header class="cli-top"><div class="brand-mark"><div class="logo">' + ui.icon('truck') + '</div><div><b>Drive Thru</b><span>' + esc(DT.APP.subtitulo) + '</span></div></div></header>' +
+      '<header class="cli-top">' + ui.marca() + '</header>' +
       '<main class="cli-main">' + conteudo + '</main>' +
       '<footer class="cli-foot">' + esc(unidadeAtual || DT.DEFAULT_SETTINGS.unidade) + ' · Esta página se atualiza sozinha.</footer>' +
       '</div>';

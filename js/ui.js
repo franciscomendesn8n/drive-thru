@@ -64,6 +64,12 @@ DT.ui = (function () {
   function iniciais(nome) {
     return String(nome || '?').split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
   }
+  /* Marca da empresa (logo branca) + identificação do app. Usar sobre fundo escuro. */
+  function marca() {
+    const e = DT.APP.empresa;
+    return '<div class="brand-condor"><img src="' + esc(e.logo) + '" alt="' + esc(e.nome + ' — ' + e.slogan) + '">' +
+      '<span class="brand-app">' + icon('truck', 'icon-sm') + '<span>' + esc(DT.APP.nome) + '<span class="brand-app-sub"> · Agendamento de retirada</span></span></span></div>';
+  }
   function empty(msg, ic) {
     return '<div class="empty">' + icon(ic || 'list') + '<div>' + esc(msg) + '</div></div>';
   }
@@ -209,5 +215,5 @@ DT.ui = (function () {
   }
 
   return { qrSVG, icon, tone, badge, alertChips, tag, iniciais, empty, notice, pedidoKV, itensPedido,
-    funcionariosOptions, options, toast, modal, confirmar, baixarCSV, copiar, esc };
+    funcionariosOptions, options, marca, toast, modal, confirmar, baixarCSV, copiar, esc };
 })();

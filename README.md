@@ -54,7 +54,7 @@ dados de demonstração ou apagar os agendamentos e começar a operação real.
 | Entrega | Logística | Hora da entrega automática, responsável, encerramento |
 | Acompanhar pedido | todos | Linha do tempo completa do pedido e reagendamentos |
 | Dashboard | Logística, Gestor | 10 indicadores, agenda do dia, ocupação, alertas, tempos médios |
-| Relatórios | Gestor | 7 relatórios com filtros, exportação CSV e cópia para Excel |
+| Relatórios | Gestor | 7 relatórios com filtros, exportação CSV, PDF com cabeçalho da empresa e cópia para Excel |
 | Auditoria | Gestor | Quem fez o quê, quando, valor anterior e novo |
 | Usuários e perfis | Admin | Usuários, senhas e matriz de permissões por perfil |
 | Funcionários | Admin | Cadastro com foto (recorte e compressão automáticos); lista usada nos campos de responsável |
@@ -162,12 +162,14 @@ index.html
 css/style.css            tema claro/escuro, componentes, responsivo
 js/config.js             parâmetros padrão, status, permissões, menu, ERP_CONFIG
 js/utils.js              datas, formatação, hash de senha, CSV
+js/relatorio-pdf.js      exportação dos relatórios em PDF (logo Condor, resumo, gráfico e tabela)
+img/logo-condor.png      logo da empresa (PNG transparente, letras brancas — usar sobre fundo escuro)
 js/storage.js            camada de dados (memória + localStorage no modo local)
 js/nuvem.js              Supabase: login, carga, gravação e tempo real
 js/lgpd.js               termo LGPD exibido após o login (texto e aceite)
 js/rastreio.js           cliente a caminho: distância, previsão, alerta e simulação
 js/views-mapa.js         tela Mapa de chegadas
-js/vendor/               bibliotecas incluídas (supabase-js e QR Code: MIT; Leaflet: BSD-2)
+js/vendor/               bibliotecas incluídas (supabase-js, QR Code, jsPDF e jsPDF-AutoTable: MIT; Leaflet: BSD-2)
 js/erp.js                integração com ERP (hoje: base simulada)
 js/services.js           regras de negócio, alertas e indicadores
 js/seed.js               usuários iniciais e dados de demonstração

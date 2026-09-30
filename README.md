@@ -176,14 +176,22 @@ js/seed.js               usuários iniciais e dados de demonstração
 js/ui.js                 ícones, modais, toasts, componentes
 js/views-*.js            telas por área (comercial, operação, gestão, admin)
 js/app.js                login, layout, rotas, atualização automática
+img/responsavel.jpg      foto do responsável pelo projeto (barra superior)
+supabase/schema.sql      estrutura completa do banco (tabelas, regras de acesso, funções, gatilho)
+supabase/functions/      função de servidor dt-usuarios (criação de usuários e senhas)
+supabase/README.md       como instalar o banco em um projeto Supabase novo
 ```
 
 ## Próximos passos para produção
 
-1. **Banco de dados e API**: trocar `js/storage.js` por chamadas a uma API (as telas não mudam).
-   Hoje os dados ficam no navegador de cada computador, então **não são compartilhados** entre usuários.
+1. **Contas da empresa**: publicar o site em domínio próprio e recriar o banco em uma conta Supabase
+   corporativa seguindo `supabase/README.md`; depois, atualizar `DT.SUPABASE` em `js/config.js`.
 2. **ERP**: em `js/config.js` mudar `DT.ERP_CONFIG.modo` para `'api'`, informar `baseUrl` e ajustar
    `DT.ERP.mapear()` em `js/erp.js` ao formato de retorno do ERP.
-3. **Autenticação no servidor**: o login atual é de protótipo (hash no navegador). Em produção,
-   validar senha no servidor ou integrar com o AD/SSO da empresa.
-4. Visão futura prevista: QR Code no comprovante e check-in, notificação ao cliente, painel TV na doca.
+3. **Regras por perfil no servidor**: hoje o banco garante leitura, configurações, funcionários e
+   exclusões; as demais regras por perfil (ex.: vendedor não registra entrega) são aplicadas nas telas.
+4. **Segurança**: trocar as senhas de teste, desativar os usuários de demonstração, limitar tentativas
+   na consulta do cliente sem link e validar o termo LGPD com o jurídico.
+5. **Login corporativo (opcional)**: integrar com o AD/SSO da empresa pelo Supabase Auth.
+6. Visão futura: aviso ao cliente por WhatsApp/SMS, painel de TV na doca, aplicativo instalado para
+   rastreamento com o celular bloqueado e previsão de chegada com trânsito.

@@ -92,7 +92,7 @@ DT.ERP = (function () {
     base[125902] = montar(125902, { cliente: 'Reforma Já', diasAtras: 1, elegivel: false, situacao: 'Cancelado', motivo: 'Pedido cancelado no ERP.' });
 
     // Pedidos para a apresentação à diretoria (processo completo, do zero).
-    // 130001 = pedido da apresentação · 130002 = reserva para ensaio
+    // 130001 = pedido da apresentação · 130002 e 130003 = pedidos extras de teste
     const ITENS_APRESENTACAO = [
       ['100231', 'Cimento CP-II 50kg', 20, 'SC', 38.90],
       ['100874', 'Argamassa AC-II 20kg', 10, 'SC', 24.50],
@@ -100,7 +100,7 @@ DT.ERP = (function () {
       ['100512', 'Areia média ensacada 20kg', 30, 'SC', 7.90],
       ['300088', 'Vergalhão CA-50 10mm 12m', 12, 'BR', 54.90]
     ];
-    [130001, 130002].forEach(n => {
+    [130001, 130002, 130003].forEach(n => {
       base[n] = montar(n, { cliente: 'Jose Carlos Milito', telefone: '(61) 98765-2026', vendedor: 'Inácio Sardinha',
         pagamento: 'PIX', situacao: 'Aprovado', faturado: false, diasAtras: 0, itens: ITENS_APRESENTACAO });
       base[n].apresentacao = true;

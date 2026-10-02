@@ -24,7 +24,7 @@ create table if not exists public.dt_usuarios (
 );
 
 create table if not exists public.dt_config (
-  chave text primary key,                        -- settings | perfis | meta
+  chave text primary key,                        -- settings | perfis | meta | aparencia
   valor jsonb not null,
   atualizado_em timestamptz not null default now()
 );
@@ -277,6 +277,12 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Aparência (logo, cores e textos do login): pública, lida antes do login
+create or replace function public.dt_aparencia()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce((select c.valor from public.dt_config c where c.chave = 'aparencia'), '{}'::jsonb);
+$$;
+
 -- O cliente para de compartilhar: a posição é apagada
 create or replace function public.dt_parar_localizacao(p_codigo text)
 returns boolean language sql security definer set search_path = '' as $$
@@ -298,6 +304,8 @@ grant execute on function public.dt_acompanhar(text) to anon, authenticated;
 grant execute on function public.dt_acompanhar_pedido(text, text) to anon, authenticated;
 grant execute on function public.dt_enviar_localizacao(text, double precision, double precision, double precision, double precision, double precision, boolean) to anon, authenticated;
 grant execute on function public.dt_parar_localizacao(text) to anon, authenticated;
+revoke all on function public.dt_aparencia() from public;
+grant execute on function public.dt_aparencia() to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- 5. Gatilho: chegou, cancelou, não compareceu ou concluiu → apaga a localização

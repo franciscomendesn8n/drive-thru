@@ -31,19 +31,20 @@ DT.app = (function () {
   function telaLogin(erro) {
     erro = erro || avisoLogin;
     const root = document.getElementById('app');
+    const ap = DT.aparencia.atual();
     const passos = [['Venda', 'Comercial'], ['Agendamento', 'Comercial'], ['Preparação', 'Logística'], ['Conferência', 'Logística'],
       ['Faturamento', 'Logística'], ['Chegada', 'Cliente'], ['Carregamento', 'Logística'], ['Entrega', 'Finalização']];
     root.innerHTML =
       '<div class="login">' +
         '<section class="login-brand">' +
           ui.marca() +
-          '<h1>Agendamento e controle da <em>retirada</em></h1>' +
-          '<p class="lead">Do pedido agendado pelo Comercial até a mercadoria carregada no veículo do cliente, com cada etapa registrada.</p>' +
-          '<div class="flow">' + passos.map((p, i) => '<div class="flow-step"><b>' + String(i + 1).padStart(2, '0') + '</b><span>' + p[0] + '</span><small>' + p[1] + '</small></div>').join('') + '</div>' +
+          '<h1>' + esc(ap.loginTitulo) + (ap.loginTituloDestaque ? ' <em>' + esc(ap.loginTituloDestaque) + '</em>' : '') + '</h1>' +
+          (ap.loginTexto ? '<p class="lead">' + esc(ap.loginTexto) + '</p>' : '') +
+          (ap.loginEtapas === false ? '' : '<div class="flow">' + passos.map((p, i) => '<div class="flow-step"><b>' + String(i + 1).padStart(2, '0') + '</b><span>' + p[0] + '</span><small>' + p[1] + '</small></div>').join('') + '</div>') +
         '</section>' +
         '<section class="login-panel">' +
           '<div class="login-card">' +
-            '<div class="stack" style="gap:4px"><span class="eyebrow">Acesso restrito</span><h2 style="font-size:28px">Entrar no sistema</h2><p class="muted">Use seu usuário e senha. O menu é liberado conforme o seu perfil.</p></div>' +
+            '<div class="stack" style="gap:4px"><span class="eyebrow">Acesso restrito</span><h2 style="font-size:28px">' + esc(ap.loginCardTitulo) + '</h2>' + (ap.loginCardTexto ? '<p class="muted">' + esc(ap.loginCardTexto) + '</p>' : '') + '</div>' +
             (erro ? ui.notice('crit', esc(erro)) : '') +
             '<form id="form-login" autocomplete="on" novalidate>' +
               '<div class="field"><label for="lg-user">Usuário</label><input id="lg-user" class="input" name="username" autocomplete="username" placeholder="Digite seu usuário" required></div>' +
@@ -217,6 +218,7 @@ DT.app = (function () {
     if (location.hash === alvo) render(); else location.hash = alvo;
   }
   function render() {
+    DT.aparencia.aplicar();   // descarta prévias não salvas ao trocar de tela
     const u = DT.auth.usuarioAtual();
     if (!u) { parar(); telaLogin(); return; }
     let r = lerRota();
@@ -334,6 +336,7 @@ DT.app = (function () {
       if (cod === null) telaCarregando('Conectando ao servidor…');
       try {
         await DT.nuvem.iniciar();
+        await DT.aparencia.carregarPublico();     // logo, cores e textos do login (público)
         if (cod === null && DT.nuvem.temSessao()) {
           const r = await DT.nuvem.prepararSessao();
           if (!r.ok) avisoLogin = 'Sua sessão foi encerrada. Isso acontece quando a senha é trocada, o usuário é desativado ou o acesso expira. Entre novamente.';
@@ -352,6 +355,7 @@ DT.app = (function () {
 
   /* Alguém alterou dados em outro aparelho: atualiza menu e telas "ao vivo" */
   function atualizarPorMudanca() {
+    DT.aparencia.aplicar();
     if (!document.getElementById('view') || !DT.auth.usuarioAtual()) return;
     atualizarAoVivo();
   }

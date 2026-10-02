@@ -14,7 +14,7 @@ window.DT = window.DT || {};
 DT.nuvem = (function () {
   const cfg = DT.SUPABASE || {};
   const TAB = { agendamentos: 'dt_agendamentos', auditoria: 'dt_auditoria', funcionarios: 'dt_funcionarios', config: 'dt_config', usuarios: 'dt_usuarios' };
-  const CONFIG_CHAVES = ['settings', 'perfis', 'meta'];
+  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia'];
   let sb = null, sessao = null, canal = null;
   let status = 'desconectado';           // desconectado | sincronizado | salvando | erro
   let avisouErro = false;
@@ -380,6 +380,13 @@ DT.nuvem = (function () {
     if (error) throw error;
     return data;
   }
+  /* Aparência (logo, cores e textos do login): pública, lida antes do login */
+  async function aparenciaPublica() {
+    cliente();
+    const { data, error } = await sb.rpc('dt_aparencia');
+    if (error) throw error;
+    return data || {};
+  }
   async function acompanharPorPedido(numero, final) {
     cliente();
     const { data, error } = await sb.rpc('dt_acompanhar_pedido', { p_numero: numero, p_final: final });
@@ -409,5 +416,5 @@ DT.nuvem = (function () {
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
     sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
-    gerenciarUsuario, acompanhar, acompanharPorPedido, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
+    gerenciarUsuario, acompanhar, acompanharPorPedido, aparenciaPublica, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
 })();

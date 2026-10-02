@@ -67,7 +67,8 @@ DT.ui = (function () {
   /* Marca da empresa (logo branca) + identificação do app. Usar sobre fundo escuro. */
   function marca() {
     const e = DT.APP.empresa;
-    return '<div class="brand-condor"><img src="' + esc(e.logo) + '" alt="' + esc(e.nome + ' — ' + e.slogan) + '">' +
+    const src = DT.aparencia ? DT.aparencia.logo() : e.logo;
+    return '<div class="brand-condor"><img data-logo-empresa src="' + esc(src) + '" alt="' + esc(e.nome + ' — ' + e.slogan) + '">' +
       '<span class="brand-app">' + icon('truck', 'icon-sm') + '<span>' + esc(DT.APP.nome) + '<span class="brand-app-sub"> · Agendamento de retirada</span></span></span></div>';
   }
   function empty(msg, ic) {

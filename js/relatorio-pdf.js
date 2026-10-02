@@ -40,7 +40,8 @@ DT.relatorioPDF = (function () {
 
   /* Carrega a logo (mesma origem) e devolve { data, w, h } em PNG base64 */
   function carregarLogo() {
-    if (logoCache) return Promise.resolve(logoCache);
+    const src = DT.aparencia ? DT.aparencia.logo() : DT.APP.empresa.logo;
+    if (logoCache && logoCache.src === src) return Promise.resolve(logoCache);
     return new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
@@ -48,12 +49,12 @@ DT.relatorioPDF = (function () {
           const c = document.createElement('canvas');
           c.width = img.naturalWidth; c.height = img.naturalHeight;
           c.getContext('2d').drawImage(img, 0, 0);
-          logoCache = { data: c.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight };
+          logoCache = { src: src, data: c.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight };
           resolve(logoCache);
         } catch (e) { resolve(null); }
       };
       img.onerror = () => resolve(null);
-      img.src = DT.APP.empresa.logo;
+      img.src = src;
     });
   }
 

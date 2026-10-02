@@ -58,7 +58,7 @@ dados de demonstração ou apagar os agendamentos e começar a operação real.
 | Auditoria | Gestor | Quem fez o quê, quando, valor anterior e novo |
 | Usuários e perfis | Admin | Usuários, senhas e matriz de permissões por perfil |
 | Funcionários | Admin | Cadastro com foto (recorte e compressão automáticos); lista usada nos campos de responsável |
-| Configurações | Admin | Horários, intervalo, vagas por janela, veículos simultâneos, regras de alerta, docas |
+| Configurações | Admin | Horários, intervalo, vagas por janela, veículos simultâneos, regras de alerta, docas e **aparência** (logo, cores e textos do login) |
 
 ## Banco de dados na nuvem (Supabase)
 
@@ -141,6 +141,23 @@ navegador a compartilhar a localização. A equipe acompanha em **Operação ›
 - Mapa: Leaflet (licença BSD-2, em `js/vendor/`) com mapas do OpenStreetMap. Para alto volume, usar
   um provedor de mapas contratado.
 
+## Aparência (layout personalizável)
+
+Em **Configurações › Aparência (layout)** o administrador ajusta, com prévia ao vivo:
+
+- **Logo da empresa** (PNG, JPG, WEBP ou SVG; ajustada para até 640 × 240 px). Aparece no menu, no
+  login, na página do cliente e nos relatórios em PDF. "Usar logo padrão" volta à logo do projeto.
+- **Menu lateral:** fundo, texto e destaque (item ativo e contadores).
+- **Botões:** cor principal; o texto (branco ou escuro) é escolhido automaticamente pelo contraste.
+- **Tela de login:** fundo e cor de destaque da apresentação, título, palavra em destaque, texto de
+  apresentação, título e texto do quadro de acesso, e opção de mostrar as 8 etapas.
+
+Avisos de contraste aparecem quando alguma combinação fica difícil de ler. "Restaurar padrão Condor"
+volta tudo ao original. A alteração vale para todos os usuários (tempo real) e fica na Auditoria.
+Fica gravada em `dt_config` (chave `aparencia`) e é lida sem login pela função pública
+`dt_aparencia()`, porque a tela de login e a página do cliente aparecem antes de qualquer acesso;
+uma cópia fica no navegador para a tela já abrir com o visual certo. Código: `js/aparencia.js`.
+
 ## Regras implementadas
 
 - Antecedência mínima de 1 hora (configurável).
@@ -168,6 +185,7 @@ js/storage.js            camada de dados (memória + localStorage no modo local)
 js/nuvem.js              Supabase: login, carga, gravação e tempo real
 js/lgpd.js               termo LGPD exibido após o login (texto e aceite)
 js/rastreio.js           cliente a caminho: distância, previsão, alerta e simulação
+js/aparencia.js          aparência personalizável (logo, cores do menu e dos botões, login)
 js/views-mapa.js         tela Mapa de chegadas
 js/vendor/               bibliotecas incluídas (supabase-js, QR Code, jsPDF e jsPDF-AutoTable: MIT; Leaflet: BSD-2)
 js/erp.js                integração com ERP (hoje: base simulada)

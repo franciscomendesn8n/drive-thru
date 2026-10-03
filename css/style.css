@@ -332,8 +332,13 @@ button.tag:hover { border-color: var(--accent); border-left-color: var(--signal)
 .kv.two > div:nth-child(3n) { border-right: 1px solid var(--line); }
 .kv.two > div:nth-child(2n) { border-right: 0; }
 .items-list { width: 100%; border-collapse: collapse; font-size: 13px; }
-.items-list td { padding: 6px 0; border-bottom: 1px dashed var(--line); }
-.items-list td:last-child { text-align: right; font-family: var(--font-mono); white-space: nowrap; }
+.items-list th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.items-list td { padding: 6px 8px 6px 0; border-bottom: 1px dashed var(--line); vertical-align: top; }
+.items-list td:first-child { white-space: nowrap; }
+.items-list .end { text-align: center; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+.items-list td.end { background: var(--surface-2); }
+.items-list .r { text-align: right; white-space: nowrap; }
+.items-list tr > :last-child { padding-right: 0; white-space: nowrap; }
 
 /* ------------------------------ Seletor de horários ------------------------------ */
 .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }

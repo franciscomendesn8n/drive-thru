@@ -27,7 +27,15 @@
     ['tipoEntrega', 'Tipo de entrega', false, 'Retira, entrega…'],
     ['elegivel', 'Liberado para Drive Thru', false, 'Campo sim/não, se o ERP tiver']
   ];
-  const ITENS = [['sku', 'Código do produto'], ['descricao', 'Descrição'], ['qtd', 'Quantidade'], ['un', 'Unidade'], ['ean', 'Código de barras (EAN)']];
+  const ITENS = [['sku', 'Código do produto'], ['descricao', 'Descrição'], ['qtd', 'Quantidade'], ['un', 'Unidade'], ['ean', 'Código de barras (EAN)'],
+    ['rua', 'Endereço: Rua'], ['predio', 'Endereço: Prédio'], ['nivel', 'Endereço: Nível'], ['apto', 'Endereço: Apartamento']];
+  /* Endereço de demonstração no CD a partir do código do produto (Rua · Prédio · Nível · Apartamento) */
+  function enderecoDe(sku) {
+    const d = String(sku || '').replace(/\D/g, '').padStart(6, '0').slice(-6);
+    const p2 = n => String(n).padStart(2, '0');
+    return { rua: p2(Math.max(1, Number(d[0]) * 2 - (Number(d[5]) % 2))), predio: String(Number(d.slice(1, 4)) % 40 + 1).padStart(3, '0'),
+      nivel: p2(Number(d[4]) % 4 + 1), apto: p2(Number(d[5]) % 3 + 1) };
+  }
   /* EAN-13 de demonstração a partir do código do produto (789 + código + dígito verificador) */
   function eanDe(sku) {
     const base = ('789' + String(sku || '').replace(/\D/g, '').padStart(9, '0')).slice(-12).padStart(12, '0');
@@ -126,7 +134,8 @@
     let itensErp = it.lista ? obter(r, it.lista) : [];
     if (it.lista && !Array.isArray(itensErp)) { avisos.push('Lista de itens não encontrada em "' + it.lista + '".'); itensErp = []; }
     const itens = (itensErp || []).map(i => ({
-      sku: txt(obter(i, it.sku)), descricao: txt(obter(i, it.descricao)), qtd: numero(obter(i, it.qtd)) || 0, un: txt(obter(i, it.un)), ean: it.ean ? txt(obter(i, it.ean)) : ''
+      sku: txt(obter(i, it.sku)), descricao: txt(obter(i, it.descricao)), qtd: numero(obter(i, it.qtd)) || 0, un: txt(obter(i, it.un)), ean: it.ean ? txt(obter(i, it.ean)) : '',
+      rua: it.rua ? txt(obter(i, it.rua)) : '', predio: it.predio ? txt(obter(i, it.predio)) : '', nivel: it.nivel ? txt(obter(i, it.nivel)) : '', apto: it.apto ? txt(obter(i, it.apto)) : ''
     }));
     const situacao = txt(v('situacao'));
     const tipoEntrega = txt(v('tipoEntrega'));
@@ -184,12 +193,13 @@
     campos: { numero: 'nr_pedido', dataPedido: 'dt_emissao', horaPedido: '', cliente: 'cliente.razao_social', telefone: 'cliente.telefone',
       valor: 'valor_total', vendedor: 'vendedor.nome', formaPagamento: 'condicao_pagamento', situacao: 'situacao', notaFiscal: 'nota_fiscal',
       statusFaturamento: 'situacao', tipoEntrega: 'tipo_entrega', elegivel: '' },
-    itens: { lista: 'itens', sku: 'cod_produto', descricao: 'descricao', qtd: 'qtde', un: 'unidade', ean: 'ean' },
+    itens: { lista: 'itens', sku: 'cod_produto', descricao: 'descricao', qtd: 'qtde', un: 'unidade', ean: 'ean',
+      rua: 'endereco.rua', predio: 'endereco.predio', nivel: 'endereco.nivel', apto: 'endereco.apto' },
     regras: { situacoesBloqueadas: 'CANCELADO, BLOQUEADO', tiposEntregaAceitos: 'RETIRA', faturadoValores: 'FATURADO' },
     chave: 'demo-condor-2026'
   };
 
-  const api = { CAMPOS, ITENS, DEMO, eanDe, obter, caminhos, mapear, montarUrl, cabecalhos, dataHora, numero, simNao };
+  const api = { CAMPOS, ITENS, DEMO, eanDe, enderecoDe, obter, caminhos, mapear, montarUrl, cabecalhos, dataHora, numero, simNao };
   raiz.DT_ERP_NUCLEO = api;
   if (typeof window !== 'undefined') { window.DT = window.DT || {}; window.DT.erpNucleo = api; }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

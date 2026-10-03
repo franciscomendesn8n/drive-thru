@@ -98,10 +98,23 @@ DT.ui = (function () {
     ];
     return '<dl class="kv">' + itens.map(i => '<div><dt>' + i[0] + '</dt><dd>' + i[1] + '</dd></div>').join('') + '</dl>';
   }
+  /* Endereço do item no CD (Rua · Prédio · Nível · Apartamento).
+     Pedidos do ERP trazem o endereço pelo de-para; a base de demonstração gera um endereço fictício. */
+  function enderecoItem(i, p) {
+    if (i.rua || i.predio || i.nivel || i.apto) return { rua: i.rua || '', predio: i.predio || '', nivel: i.nivel || '', apto: i.apto || '' };
+    if (p && p.origem === 'erp') return { rua: '', predio: '', nivel: '', apto: '' };
+    return DT.erpNucleo.enderecoDe(i.sku);
+  }
   function itensPedido(p) {
     if (!p.itens || !p.itens.length) return '';
-    return '<table class="items-list"><tbody>' + p.itens.map(i =>
-      '<tr><td><span class="mono subtle">' + esc(i.sku) + '</span> ' + esc(i.descricao) + '</td><td>' + esc(i.qtd) + ' ' + esc(i.un) + '</td></tr>').join('') + '</tbody></table>';
+    const c = v => '<td class="end mono">' + (v ? esc(v) : '<span class="subtle">—</span>') + '</td>';
+    return '<div class="table-wrap"><table class="items-list"><thead><tr><th>Código</th><th>Descrição</th>' +
+      '<th class="end" title="Rua">Rua</th><th class="end" title="Prédio">Pre</th><th class="end" title="Nível">Niv</th><th class="end" title="Apartamento">Apto</th>' +
+      '<th class="r">Qtd</th><th>Emb.</th></tr></thead><tbody>' + p.itens.map(i => {
+        const e = enderecoItem(i, p);
+        return '<tr><td class="mono subtle">' + esc(i.sku) + '</td><td>' + esc(i.descricao) + '</td>' + c(e.rua) + c(e.predio) + c(e.nivel) + c(e.apto) +
+          '<td class="r mono">' + esc(i.qtd) + '</td><td class="mono">' + esc(i.un) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
   }
 
   function funcionariosOptions(selecionado, setor) {
@@ -216,6 +229,6 @@ DT.ui = (function () {
     } catch (e) { return ''; }
   }
 
-  return { qrSVG, icon, tone, badge, alertChips, tag, iniciais, empty, notice, pedidoKV, itensPedido,
+  return { qrSVG, icon, tone, badge, alertChips, tag, iniciais, empty, notice, pedidoKV, itensPedido, enderecoItem,
     funcionariosOptions, options, marca, toast, modal, confirmar, baixarCSV, copiar, esc };
 })();

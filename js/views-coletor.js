@@ -265,7 +265,7 @@ DT.views.coletor = (function () {
         '<div class="col-prog"><div class="bar-track"><div class="bar-fill' + (t.completo ? ' ok' : '') + '" style="width:' + pct + '%"></div></div><b class="mono">' + t.lidos + '/' + t.total + '</b></div>' +
         (itens.length ? '<div class="col-itens">' + itens.map((i, k) => {
           const lido = c[f][k] || 0, q = Number(i.qtd) || 0, ok = lido >= q;
-          return '<div class="col-item' + (ok ? ' ok' : lido ? ' parcial' : '') + '"><span class="col-it-tx"><b>' + esc(i.descricao) + '</b><span class="subtle mono">' + esc(i.sku) + '</span></span>' +
+          return '<div class="col-item' + (ok ? ' ok' : lido ? ' parcial' : '') + '"><span class="col-it-tx"><b>' + esc(i.descricao) + '</b><span class="subtle mono">' + esc(i.sku) + enderecoTxt(i, ag.pedido) + '</span></span>' +
             '<span class="col-it-q mono">' + lido + '<small>/' + q + ' ' + esc(i.un) + '</small></span></div>';
         }).join('') + '</div>' : '<div class="notice warn">' + ui.icon('alert') + '<div>Este pedido não trouxe a lista de produtos. Confira pelo documento e finalize.</div></div>') +
         '<div class="row wrap col-acoes">' +
@@ -275,6 +275,10 @@ DT.views.coletor = (function () {
           '<button type="button" class="btn ghost" id="col-trocar">' + ui.icon('back') + 'Trocar pedido</button>' +
         '</div>' +
       '</div></section>';
+  }
+  function enderecoTxt(i, p) {
+    const e = ui.enderecoItem(i, p);
+    return e.rua || e.predio || e.nivel || e.apto ? ' · Rua ' + esc(e.rua || '—') + ' · Pre ' + esc(e.predio || '—') + ' · Niv ' + esc(e.nivel || '—') + ' · Apto ' + esc(e.apto || '—') : '';
   }
   function listaPendentes(itemAItem, aberto) {
     const l = pendentes();

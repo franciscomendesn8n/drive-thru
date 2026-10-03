@@ -5,7 +5,7 @@
 //          140003 (já faturado). Dados fictícios.
 // status_separacao simula o WMS: avança uma etapa a cada 6 minutos (ciclo de 30 min) —
 //   AGUARDANDO → EM SEPARACAO → SEPARADO → CONFERIDO → FATURADO.
-// Cada item traz o código de barras (ean), gerado a partir do código do produto.
+// Cada item traz o código de barras (ean) e o endereço no CD (rua, prédio, nível, apartamento).
 const CHAVE = "demo-condor-2026";
 type Item = [string, string, number, string, number];
 const P: Record<string, [string, string, string, string, Item[]]> = {
@@ -29,6 +29,12 @@ function eanDe(sku: string) {
   let soma = 0;
   for (let i = 0; i < 12; i++) soma += Number(base[i]) * (i % 2 ? 3 : 1);
   return base + ((10 - soma % 10) % 10);
+}
+function enderecoDe(sku: string) {
+  const d = sku.replace(/\D/g, "").padStart(6, "0").slice(-6);
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  return { rua: p2(Math.max(1, Number(d[0]) * 2 - (Number(d[5]) % 2))), predio: String(Number(d.slice(1, 4)) % 40 + 1).padStart(3, "0"),
+    nivel: p2(Number(d[4]) % 4 + 1), apto: p2(Number(d[5]) % 3 + 1) };
 }
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "x-api-key, content-type", "Access-Control-Allow-Methods": "GET, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -58,7 +64,7 @@ Deno.serve((req: Request) => {
       valor_total: Math.round(p[4].reduce((a, i) => a + i[2] * i[4], 0) * 100) / 100,
       vendedor: { codigo: "V" + (p[2].length * 7), nome: p[2] },
       cliente: { codigo: "C" + num.slice(-3), razao_social: p[0], telefone: p[1] },
-      itens: p[4].map((i, k) => ({ seq: k + 1, cod_produto: i[0], descricao: i[1], qtde: i[2], unidade: i[3], vl_unitario: i[4], ean: eanDe(i[0]) })),
+      itens: p[4].map((i, k) => ({ seq: k + 1, cod_produto: i[0], descricao: i[1], qtde: i[2], unidade: i[3], vl_unitario: i[4], ean: eanDe(i[0]), endereco: enderecoDe(i[0]) })),
     },
   });
 });

@@ -8,7 +8,7 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.8.0',
+  versao: '0.8.1',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10,
   /* Responsável pelo projeto — exibido na barra superior, antes do relógio */

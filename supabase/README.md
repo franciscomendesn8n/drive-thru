@@ -66,6 +66,8 @@ O administrador liga o ERP sem mexer no código, em 6 passos:
 3. **Resposta do ERP** — consulta um pedido real (ou cola um exemplo em JSON) e indica onde está o pedido.
 4. **Campos (de-para)** — liga cada informação do Drive Thru ao campo do ERP, com sugestão automática
    e o valor do exemplo ao lado.
+   Nos itens, além de código, descrição, quantidade e embalagem, entram o código de barras (EAN) e o
+   **endereço no CD** (Rua, Prédio, Nível e Apartamento), exibidos em "Itens do pedido" e no Modo coletor.
 5. **Regras** — situações que bloqueiam, tipos de entrega aceitos e valores que indicam "faturado".
 6. **Testar e ativar** — teste no ERP pelo servidor; só depois de um teste bem-sucedido é possível ativar.
    Dá para desativar a qualquer momento (o agendamento volta à base de demonstração).

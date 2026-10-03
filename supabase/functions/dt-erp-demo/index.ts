@@ -3,6 +3,9 @@
 //   GET /functions/v1/dt-erp-demo/pedidos/{numero}   com cabeçalho  X-API-Key: demo-condor-2026
 // Pedidos: 130004 a 130013 (aprovados, retira), 140001 (cancelado), 140002 (entrega programada),
 //          140003 (já faturado). Dados fictícios.
+// status_separacao simula o WMS: avança uma etapa a cada 6 minutos (ciclo de 30 min) —
+//   AGUARDANDO → EM SEPARACAO → SEPARADO → CONFERIDO → FATURADO.
+// Cada item traz o código de barras (ean), gerado a partir do código do produto.
 const CHAVE = "demo-condor-2026";
 type Item = [string, string, number, string, number];
 const P: Record<string, [string, string, string, string, Item[]]> = {
@@ -20,6 +23,13 @@ const P: Record<string, [string, string, string, string, Item[]]> = {
   "140002": ["Construtora Planalto", "(61) 3322-4102", "João Silva", "BOLETO", [["300088", "Vergalhão CA-50 10mm 12m", 80, "BR", 54.9]]],
   "140003": ["ABC Materiais", "(61) 99812-4103", "Inácio Sardinha", "PIX", [["100512", "Areia média ensacada 20kg", 20, "SC", 7.9], ["100733", "Brita 1 ensacada 20kg", 20, "SC", 8.4]]],
 };
+const ETAPAS = ["AGUARDANDO", "EM SEPARACAO", "SEPARADO", "CONFERIDO", "FATURADO"];
+function eanDe(sku: string) {
+  const base = ("789" + sku.replace(/\D/g, "").padStart(9, "0")).slice(-12).padStart(12, "0");
+  let soma = 0;
+  for (let i = 0; i < 12; i++) soma += Number(base[i]) * (i % 2 ? 3 : 1);
+  return base + ((10 - soma % 10) % 10);
+}
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "x-api-key, content-type", "Access-Control-Allow-Methods": "GET, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -33,17 +43,22 @@ Deno.serve((req: Request) => {
   // horário de emissão: 30 min antes da consulta (horário de Brasília)
   const emissao = new Date(Date.now() - 30 * 60000 - 3 * 3600000).toISOString().slice(0, 19) + "-03:00";
   const situacao = num === "140001" ? "CANCELADO" : num === "140003" ? "FATURADO" : "APROVADO";
+  const brt = new Date(Date.now() - 3 * 3600000);
+  const minuto = brt.getUTCHours() * 60 + brt.getUTCMinutes();
+  const etapa = num === "140001" ? 0 : num === "140003" ? 4 : Math.floor(((minuto + Number(num.slice(-2)) * 7) % 30) / 6);
+  const nf = num === "140003" ? "456789" : etapa === 4 ? "9" + num.slice(-5) : null;
   return json({
     success: true,
     data: {
       nr_pedido: num, dt_emissao: emissao, filial: "CD-01",
       situacao, tipo_entrega: num === "140002" ? "ENTREGA" : "RETIRA",
-      nota_fiscal: num === "140003" ? "456789" : null,
+      status_separacao: ETAPAS[etapa],
+      nota_fiscal: nf,
       condicao_pagamento: p[3],
       valor_total: Math.round(p[4].reduce((a, i) => a + i[2] * i[4], 0) * 100) / 100,
       vendedor: { codigo: "V" + (p[2].length * 7), nome: p[2] },
       cliente: { codigo: "C" + num.slice(-3), razao_social: p[0], telefone: p[1] },
-      itens: p[4].map((i, k) => ({ seq: k + 1, cod_produto: i[0], descricao: i[1], qtde: i[2], unidade: i[3], vl_unitario: i[4] })),
+      itens: p[4].map((i, k) => ({ seq: k + 1, cod_produto: i[0], descricao: i[1], qtde: i[2], unidade: i[3], vl_unitario: i[4], ean: eanDe(i[0]) })),
     },
   });
 });

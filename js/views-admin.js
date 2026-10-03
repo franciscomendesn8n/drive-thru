@@ -341,6 +341,7 @@ DT.views.config = (function () {
       '<div class="row end"><button type="button" class="btn ghost" id="cf-reset">Restaurar padrão do projeto</button><button type="submit" class="btn primary lg">' + ui.icon('check') + 'Salvar configurações</button></div>' +
       '</form>' +
       '<div id="cf-erp"></div>' +
+      '<div id="cf-separacao"></div>' +
       '<div id="cf-aparencia"></div>' +
       '<section class="card"><div class="card-head"><h3>Dados do sistema</h3></div><div class="card-body">' +
         (DT.db.modoNuvem() ? '<p class="muted">Os dados ficam no banco de dados na nuvem (Supabase) e são compartilhados por todos os usuários, em tempo real.</p>' :
@@ -350,6 +351,7 @@ DT.views.config = (function () {
       '</div></section>';
 
     DT.erpConfig.montar(el.querySelector('#cf-erp'));
+    DT.separacao.montarConfig(el.querySelector('#cf-separacao'));
     DT.aparencia.montarConfig(el.querySelector('#cf-aparencia'));
     const f = el.querySelector('#cf-form');
     const ler = () => ({

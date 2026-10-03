@@ -14,7 +14,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 const DOMINIO = "@drivethru.app";   // mesmo valor de DT.SUPABASE.dominioLogin em js/config.js
-const PERFIS_VALIDOS = new Set(["comercial", "logistica", "gestor", "admin"]);
+const PERFIS_VALIDOS = new Set(["comercial", "logistica", "coletor", "gestor", "admin"]);
 
 // Mesma regra do aplicativo (DT.SENHA) e da configuração do Supabase
 const SENHA_MINIMO = 8;

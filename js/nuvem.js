@@ -14,7 +14,7 @@ window.DT = window.DT || {};
 DT.nuvem = (function () {
   const cfg = DT.SUPABASE || {};
   const TAB = { agendamentos: 'dt_agendamentos', auditoria: 'dt_auditoria', funcionarios: 'dt_funcionarios', config: 'dt_config', usuarios: 'dt_usuarios' };
-  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia', 'erp'];
+  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia', 'erp', 'separacao'];
   let sb = null, sessao = null, canal = null;
   let status = 'desconectado';           // desconectado | sincronizado | salvando | erro
   let avisouErro = false;
@@ -238,7 +238,7 @@ DT.nuvem = (function () {
     on(TAB.agendamentos, p => { if (p.eventType === 'DELETE') aplicarLista('agendamentos', null, p.old && p.old.id); else aplicarLista('agendamentos', p.new.doc); avisar(); });
     on(TAB.auditoria, p => { if (p.eventType === 'DELETE') aplicarLista('auditoria', null, p.old && p.old.id); else if (!ids.auditoria.has(p.new.id)) aplicarLista('auditoria', p.new.doc); avisar(); });
     on(TAB.funcionarios, p => { if (p.eventType === 'DELETE') aplicarLista('funcionarios', null, p.old && p.old.id); else aplicarLista('funcionarios', p.new.doc); avisar(); });
-    on(TAB.config, p => { if (p.new && p.new.chave && !fila.has(TAB.config + ':' + p.new.chave)) { DT.db.memoria.gravar(p.new.chave, p.new.valor); avisar(); } });
+    on(TAB.config, p => { if (p.new && p.new.chave && CONFIG_CHAVES.indexOf(p.new.chave) >= 0 && !fila.has(TAB.config + ':' + p.new.chave)) { DT.db.memoria.gravar(p.new.chave, p.new.valor); avisar(); } });
     on('dt_rastreio', p => {
       const mapa = DT.db.memoria.ler('rastreio') || {};
       if (p.eventType === 'DELETE') { if (p.old && p.old.agendamento_id) delete mapa[p.old.agendamento_id]; }
@@ -357,7 +357,7 @@ DT.nuvem = (function () {
     try { await sb.auth.signOut(); } catch (e) { try { await sb.auth.signOut({ scope: 'local' }); } catch (e2) { /* ignora */ } }
     saindo = false;
     sessao = null;
-    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio', 'erp'].forEach(k => DT.db.memoria.gravar(k, null));
+    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio', 'erp', 'separacao'].forEach(k => DT.db.memoria.gravar(k, null));
   }
 
   /* ---------------------------- funções de servidor ---------------------------- */

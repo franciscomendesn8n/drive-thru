@@ -40,7 +40,7 @@ DT.ERP = (function () {
       const itens = [];
       let valor = 0;
       if (opts.itens) {   // itens definidos (pedidos de apresentação)
-        opts.itens.forEach(i => { itens.push({ sku: i[0], descricao: i[1], qtd: i[2], un: i[3] }); valor += i[2] * i[4]; });
+        opts.itens.forEach(i => { itens.push({ sku: i[0], descricao: i[1], qtd: i[2], un: i[3], ean: DT.erpNucleo.eanDe(i[0]) }); valor += i[2] * i[4]; });
       }
       const usados = new Set();
       for (let i = 0; i < (opts.itens ? 0 : linhas); i++) {
@@ -50,7 +50,7 @@ DT.ERP = (function () {
         const qtd = 1 + Math.floor(r() * 20);
         const unit = 20 + Math.round(r() * 280);
         valor += qtd * unit;
-        itens.push({ sku: p[0], descricao: p[1], qtd: qtd, un: p[2] });
+        itens.push({ sku: p[0], descricao: p[1], qtd: qtd, un: p[2], ean: DT.erpNucleo.eanDe(p[0]) });
       }
       const qtdItens = opts.qtdItens || itens.reduce((a, b) => a + b.qtd, 0);
       const cli = opts.cliente ? CLIENTES.find(c => c[0] === opts.cliente) || [opts.cliente, '(61) 90000-0000'] : pick(CLIENTES);

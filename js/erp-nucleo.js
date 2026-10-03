@@ -27,7 +27,14 @@
     ['tipoEntrega', 'Tipo de entrega', false, 'Retira, entrega…'],
     ['elegivel', 'Liberado para Drive Thru', false, 'Campo sim/não, se o ERP tiver']
   ];
-  const ITENS = [['sku', 'Código do produto'], ['descricao', 'Descrição'], ['qtd', 'Quantidade'], ['un', 'Unidade']];
+  const ITENS = [['sku', 'Código do produto'], ['descricao', 'Descrição'], ['qtd', 'Quantidade'], ['un', 'Unidade'], ['ean', 'Código de barras (EAN)']];
+  /* EAN-13 de demonstração a partir do código do produto (789 + código + dígito verificador) */
+  function eanDe(sku) {
+    const base = ('789' + String(sku || '').replace(/\D/g, '').padStart(9, '0')).slice(-12).padStart(12, '0');
+    let soma = 0;
+    for (let i = 0; i < 12; i++) soma += Number(base[i]) * (i % 2 ? 3 : 1);
+    return base + ((10 - soma % 10) % 10);
+  }
 
   function obter(obj, caminho) {
     if (caminho == null || caminho === '') return obj;
@@ -119,7 +126,7 @@
     let itensErp = it.lista ? obter(r, it.lista) : [];
     if (it.lista && !Array.isArray(itensErp)) { avisos.push('Lista de itens não encontrada em "' + it.lista + '".'); itensErp = []; }
     const itens = (itensErp || []).map(i => ({
-      sku: txt(obter(i, it.sku)), descricao: txt(obter(i, it.descricao)), qtd: numero(obter(i, it.qtd)) || 0, un: txt(obter(i, it.un))
+      sku: txt(obter(i, it.sku)), descricao: txt(obter(i, it.descricao)), qtd: numero(obter(i, it.qtd)) || 0, un: txt(obter(i, it.un)), ean: it.ean ? txt(obter(i, it.ean)) : ''
     }));
     const situacao = txt(v('situacao'));
     const tipoEntrega = txt(v('tipoEntrega'));
@@ -177,12 +184,12 @@
     campos: { numero: 'nr_pedido', dataPedido: 'dt_emissao', horaPedido: '', cliente: 'cliente.razao_social', telefone: 'cliente.telefone',
       valor: 'valor_total', vendedor: 'vendedor.nome', formaPagamento: 'condicao_pagamento', situacao: 'situacao', notaFiscal: 'nota_fiscal',
       statusFaturamento: 'situacao', tipoEntrega: 'tipo_entrega', elegivel: '' },
-    itens: { lista: 'itens', sku: 'cod_produto', descricao: 'descricao', qtd: 'qtde', un: 'unidade' },
+    itens: { lista: 'itens', sku: 'cod_produto', descricao: 'descricao', qtd: 'qtde', un: 'unidade', ean: 'ean' },
     regras: { situacoesBloqueadas: 'CANCELADO, BLOQUEADO', tiposEntregaAceitos: 'RETIRA', faturadoValores: 'FATURADO' },
     chave: 'demo-condor-2026'
   };
 
-  const api = { CAMPOS, ITENS, DEMO, obter, caminhos, mapear, montarUrl, cabecalhos, dataHora, numero, simNao };
+  const api = { CAMPOS, ITENS, DEMO, eanDe, obter, caminhos, mapear, montarUrl, cabecalhos, dataHora, numero, simNao };
   raiz.DT_ERP_NUCLEO = api;
   if (typeof window !== 'undefined') { window.DT = window.DT || {}; window.DT.erpNucleo = api; }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

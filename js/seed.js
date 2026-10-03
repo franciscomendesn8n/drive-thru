@@ -16,6 +16,7 @@ DT.seed = (function () {
     { login: 'inacio.sardinha', senha: '123456', nome: 'Inácio Sardinha', perfil: 'comercial', email: 'inacio.sardinha@empresa.com.br' },
     { login: 'ana.santos', senha: '123456', nome: 'Ana Santos', perfil: 'logistica', email: 'ana.santos@empresa.com.br' },
     { login: 'carlos.lima', senha: '123456', nome: 'Carlos Lima', perfil: 'logistica', email: 'carlos.lima@empresa.com.br' },
+    { login: 'marcos.pereira', senha: '123456', nome: 'Marcos Pereira', perfil: 'coletor', email: 'marcos.pereira@empresa.com.br' },
     { login: 'gestor', senha: '123456', nome: 'Roberto Almeida', perfil: 'gestor', email: 'roberto.almeida@empresa.com.br' }
   ];
   const FUNCIONARIOS = [

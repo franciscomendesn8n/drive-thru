@@ -80,3 +80,20 @@ em "Usar a chave do ERP de demonstração". Pedidos: 130004 a 130013 (liberados)
 
 > O arquivo `js/erp-nucleo.js` (aplicativo) e `functions/dt-erp/erp-nucleo.js` (servidor) devem ser
 > **idênticos** — ao alterar um, copie para o outro e publique a função dt-erp de novo.
+
+## Separação e conferência (Configurações › Separação e conferência)
+
+Somente o perfil **Administrador** escolhe o modo de trabalho; a escolha vale para todos na hora.
+
+| Modo | Como as etapas Em preparação → Separado → Conferido são registradas |
+|---|---|
+| Manual (como hoje) | Botões na tela Preparação |
+| Status vindo do ERP / WMS | O servidor (função dt-erp, ação `sincronizarSeparacao`) lê no ERP, a cada minuto, a etapa dos pedidos do dia. Informe o campo e os valores de cada etapa. Só avança, nunca volta |
+| Coletor — conferência item a item | Tela **Modo coletor**: bipa o pedido e cada produto (EAN ou código), na separação e na conferência. Opções: conferente diferente de quem separou; finalizar com divergência (com motivo) |
+| Coletor — bipe do pedido | Tela **Modo coletor**: cada bipe do pedido avança uma etapa; bipe repetido em poucos segundos é ignorado; o último bipe pode ser desfeito em até 2 minutos |
+
+- Permissão nova: **Operar o coletor** (`coletor.operar`) e perfil **Operador de coletor**, que só vê o Modo coletor.
+- A seção 8 do `schema.sql` faz o servidor recusar a troca do modo por quem não é Administrador e
+  inclui a permissão do coletor nos perfis de um banco já em uso. Rode-a no *SQL Editor* se o banco
+  foi criado antes da versão 0.8.0.
+- Faturamento e liberação para retirada continuam na tela Preparação nos modos de coletor.

@@ -123,10 +123,10 @@ DT.app = (function () {
 
   /* ------------------------------ Layout ------------------------------ */
   function menuPermitido() {
-    return DT.MENU.map(g => ({ grupo: g.grupo, itens: g.itens.filter(i => DT.auth.pode(i.perm)) })).filter(g => g.itens.length);
+    return DT.MENU.map(g => ({ grupo: g.grupo, itens: g.itens.filter(i => DT.auth.pode(i.perm) && (!i.se || i.se())) })).filter(g => g.itens.length);
   }
   function rotaInicial(u) {
-    const pref = { comercial: 'agendar', logistica: 'dashboard', gestor: 'dashboard', admin: 'dashboard' }[u.perfil];
+    const pref = { comercial: 'agendar', logistica: 'dashboard', gestor: 'dashboard', admin: 'dashboard', coletor: 'coletor' }[u.perfil];
     const itens = menuPermitido().flatMap(g => g.itens);
     if (itens.find(i => i.id === pref)) return pref;
     return itens.length ? itens[0].id : null;
@@ -224,7 +224,7 @@ DT.app = (function () {
     let r = lerRota();
     const todos = DT.MENU.flatMap(g => g.itens);
     let item = todos.find(i => i.id === r.id);
-    if (!item || !DT.auth.pode(item.perm) || !DT.views[r.id]) {
+    if (!item || !DT.auth.pode(item.perm) || (item.se && !item.se()) || !DT.views[r.id]) {
       const ini = rotaInicial(u);
       if (!ini) { document.getElementById('view').innerHTML = ui.empty('Seu perfil não possui telas liberadas. Procure o administrador.', 'lock'); return; }
       if (r.id && item && !DT.auth.pode(item.perm)) ui.toast('Seu perfil não tem acesso a essa tela.', 'warn');
@@ -259,6 +259,7 @@ DT.app = (function () {
   }
 
   function parar() {
+    if (DT.separacao) DT.separacao.parar();
     clearInterval(timerRelogio); clearInterval(timerRefresh);
     timerRelogio = timerRefresh = null;
   }
@@ -294,6 +295,7 @@ DT.app = (function () {
       });
       return;
     }
+    if (DT.separacao) DT.separacao.aoEntrar();
     montarShell();
     render();
     timerRefresh = setInterval(atualizarAoVivo, 30000);

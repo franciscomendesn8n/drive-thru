@@ -17,7 +17,7 @@ create table if not exists public.dt_usuarios (
   login text not null unique,
   nome text not null,
   email text,
-  perfil text not null default 'comercial',     -- comercial | logistica | gestor | admin
+  perfil text not null default 'comercial',     -- comercial | logistica | coletor | gestor | admin
   ativo boolean not null default true,
   criado_em timestamptz not null default now(),
   ultimo_acesso timestamptz
@@ -369,3 +369,33 @@ revoke all on function public.dt_erp_credencial_status() from public, anon, auth
 grant execute on function public.dt_erp_credencial_salvar(text) to service_role;
 grant execute on function public.dt_erp_credencial_ler() to service_role;
 grant execute on function public.dt_erp_credencial_status() to service_role;
+
+-- ---------------------------------------------------------------------
+-- 8. Modo de separação e conferência (chave 'separacao'): somente o
+--    perfil Administrador pode trocar. Perfil "Operador de coletor".
+-- ---------------------------------------------------------------------
+create or replace function dt_priv.dt_config_separacao_admin()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.chave = 'separacao' and (select auth.uid()) is not null and not exists (
+    select 1 from public.dt_usuarios u where u.id = (select auth.uid()) and u.ativo and u.perfil = 'admin'
+  ) then
+    raise exception 'Somente o Administrador pode trocar o modo de separação e conferência.' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+revoke all on function dt_priv.dt_config_separacao_admin() from public, anon, authenticated;
+
+drop trigger if exists dt_config_separacao_admin on public.dt_config;
+create trigger dt_config_separacao_admin before insert or update on public.dt_config
+  for each row execute function dt_priv.dt_config_separacao_admin();
+
+-- Bancos já em uso: inclui a permissão do coletor nos perfis gravados
+update public.dt_config set valor =
+  jsonb_set(
+    jsonb_set(
+      valor || jsonb_build_object('coletor', jsonb_build_object('nome', 'Operador de coletor', 'permissoes', jsonb_build_array('coletor.operar'))),
+      '{logistica,permissoes}', coalesce(valor->'logistica'->'permissoes', '[]'::jsonb) || '["coletor.operar"]'::jsonb),
+    '{admin,permissoes}', coalesce(valor->'admin'->'permissoes', '[]'::jsonb) || '["coletor.operar"]'::jsonb),
+  atualizado_em = now()
+where chave = 'perfis' and not (valor ? 'coletor');

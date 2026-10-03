@@ -4,6 +4,8 @@
 //   testar           { numero, config? }   → pedido + resposta bruta + caminhos (permissão de configuração)
 //   salvarCredencial { credencial }        → guarda a credencial do ERP no cofre (Vault), criptografada
 //   statusCredencial                       → informa se há credencial guardada (nunca devolve o valor)
+//   sincronizarSeparacao { forcar? }       → modo "status vindo do ERP": lê no ERP a etapa de separação dos
+//                                            pedidos do dia e avança a preparação (nunca volta etapa)
 // A credencial do ERP nunca vai para o navegador.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -65,6 +67,80 @@ async function consultarErp(cfg: any, credencial: string | null, numero: string)
   return { encontrado: true, pedido: r.pedido, avisos: r.avisos, dados };
 }
 
+/* ---------------- Modo "status vindo do ERP" ---------------- */
+const FLUXO = ["Agendado", "Em preparação", "Separado", "Conferido", "Faturado", "Pronto para retirada"];
+const PRE_CHEGADA = ["Agendado", "Reagendado", "Em preparação", "Separado", "Conferido", "Faturado", "Pronto para retirada", "Cliente a caminho"];
+const lista = (s: unknown) => String(s ?? "").split(/[,;\n]/).map((x) => x.trim().toUpperCase()).filter(Boolean);
+const DESC: Record<string, string> = {
+  "Em preparação": "Preparação iniciada", "Separado": "Pedido separado", "Conferido": "Pedido conferido",
+  "Faturado": "Pedido faturado", "Pronto para retirada": "Pedido pronto para retirada",
+};
+
+// deno-lint-ignore no-explicit-any
+async function sincronizarSeparacao(admin: any, eu: any, forcar: boolean) {
+  const { data: confs } = await admin.from("dt_config").select("chave, valor").in("chave", ["erp", "separacao", "separacao_sync"]);
+  // deno-lint-ignore no-explicit-any
+  const get = (k: string) => (confs || []).find((c: any) => c.chave === k)?.valor;
+  const erp = get("erp"), sep = get("separacao"), sync = get("separacao_sync") || {};
+  if (!sep || sep.modo !== "erp") return { ok: true, ignorado: true, motivo: "modo diferente de erp" };
+  if (!erp?.ativo || !erp.url) return { erro: "Integração com o ERP desativada." };
+  const campo = sep.erp?.campo, valores = sep.erp?.valores || {};
+  if (!campo) return { erro: "Campo do status de separação não configurado." };
+  const agora = Date.now();
+  const desde = sync.ultimo ? agora - Date.parse(sync.ultimo) : Infinity;
+  if (desde < (forcar ? 10000 : 55000)) return { ok: true, ignorado: true, ultimo: sync.ultimo };
+  await admin.from("dt_config").upsert({ chave: "separacao_sync", valor: { ultimo: new Date(agora).toISOString(), por: eu.nome }, atualizado_em: new Date(agora).toISOString() });
+
+  const hoje = new Date(agora - 3 * 3600000).toISOString().slice(0, 10);   // dia em Brasília
+  const { data: ags } = await admin.from("dt_agendamentos").select("id, status, doc").eq("data", hoje).in("status", PRE_CHEGADA.concat(["Cliente chegou"])).limit(80);
+  // deno-lint-ignore no-explicit-any
+  const pendentes = (ags || []).filter((a: any) => {
+    const p = a.doc?.prep === "Reagendado" ? "Agendado" : (a.doc?.prep || "Agendado");
+    return FLUXO.indexOf(p) >= 0 && FLUXO.indexOf(p) < FLUXO.length - 1;
+  });
+  const { data: cred } = await admin.rpc("dt_erp_credencial_ler");
+  const atualizados: unknown[] = [], erros: unknown[] = [];
+
+  // deno-lint-ignore no-explicit-any
+  async function um(a: any) {
+    const doc = a.doc, numero = String(doc?.pedido?.numero || "");
+    if (!numero) return;
+    const r = await consultarErp(erp, cred || null, numero);
+    if (r.erro || !r.encontrado) { if (r.erro) erros.push({ numero, erro: r.erro }); return; }
+    let raiz = N.obter(r.dados, erp.raiz || "");
+    if (Array.isArray(raiz)) raiz = raiz[0];
+    const v = raiz ? N.obter(raiz, campo) : undefined;
+    if (v === undefined || v === null) return;
+    const val = String(v).trim().toUpperCase();
+    let alvo = -1;
+    FLUXO.forEach((e, i) => { if (i > 0 && lista(valores[e]).indexOf(val) >= 0) alvo = i; });
+    const prepAtual = doc.prep === "Reagendado" ? "Agendado" : (doc.prep || "Agendado");
+    const atual = FLUXO.indexOf(prepAtual);
+    if (alvo <= atual) return;
+    const ts = new Date().toISOString();
+    doc.etapas = doc.etapas || {};
+    doc.historico = doc.historico || [];
+    for (let i = atual + 1; i <= alvo; i++) {
+      const e = FLUXO[i];
+      if (e === "Faturado" && r.pedido?.notaFiscal) { doc.pedido.notaFiscal = String(r.pedido.notaFiscal); }
+      if (e === "Faturado") doc.pedido.statusFaturamento = "Faturado";
+      doc.etapas[e] = { ts, usuario: "Integração ERP", responsavel: null, origem: "erp" };
+      doc.historico.push({ ts, status: e, desc: DESC[e] + (e === "Faturado" && doc.pedido.notaFiscal ? " — NF " + doc.pedido.notaFiscal : "") + " — ERP (" + val + ")", usuario: "Integração ERP" });
+    }
+    const de = prepAtual, para = FLUXO[alvo];
+    doc.prep = para;
+    if (PRE_CHEGADA.indexOf(doc.status) >= 0 && doc.status !== "Cliente a caminho") doc.status = para;
+    doc.alteradoEm = ts; doc.alteradoPor = "Integração ERP";
+    const { error, count } = await admin.from("dt_agendamentos").update({ status: doc.status, doc, atualizado_em: ts }, { count: "exact" }).eq("id", a.id).eq("status", a.status);
+    if (error || !count) { if (error) erros.push({ numero, erro: error.message }); return; }
+    const idAud = "aud_" + crypto.randomUUID().replace(/-/g, "");
+    await admin.from("dt_auditoria").insert({ id: idAud, ts, doc: { id: idAud, ts, userId: null, usuario: "Integração ERP", acao: "Alterou preparação (ERP)", entidade: "Agendamento", referencia: numero, antes: de, depois: para + " (" + val + ")" } });
+    atualizados.push({ numero, de, para });
+  }
+  for (let i = 0; i < pendentes.length; i += 5) await Promise.all(pendentes.slice(i, i + 5).map(um));
+  return { ok: true, verificados: pendentes.length, atualizados, erros: erros.slice(0, 10) };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ erro: "Método não permitido." }, 405);
@@ -86,6 +162,8 @@ Deno.serve(async (req: Request) => {
 
   if (acao === "salvarCredencial" || acao === "statusCredencial" || acao === "testar") {
     if (!pode("config.alterar")) return json({ erro: "Seu perfil não pode configurar a integração." }, 403);
+  } else if (acao === "sincronizarSeparacao") {
+    // qualquer usuário ativo dispara; o servidor limita a uma leitura por minuto
   } else if (acao === "consultar") {
     if (!(pode("pedido.consultar") || pode("agendamento.criar"))) return json({ erro: "Seu perfil não pode consultar pedidos." }, 403);
   } else return json({ erro: "Ação desconhecida." }, 400);
@@ -104,6 +182,8 @@ Deno.serve(async (req: Request) => {
     const { data } = await admin.rpc("dt_erp_credencial_status");
     return json({ ok: true, ...(data || {}) });
   }
+
+  if (acao === "sincronizarSeparacao") return json(await sincronizarSeparacao(admin, eu, !!body.forcar));
 
   const numero = String(body.numero ?? "").replace(/\D/g, "");
   if (!numero) return json({ erro: "Informe o número do pedido." }, 400);

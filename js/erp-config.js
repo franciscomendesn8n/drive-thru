@@ -38,12 +38,13 @@ DT.erpConfig = (function () {
     sku: ['cod_produto', 'codigo_produto', 'sku', 'codigo', 'cod', 'produto_id', 'id_produto'],
     descricao: ['descricao', 'desc', 'nome', 'produto', 'descricao_produto'],
     qtd: ['qtde', 'quantidade', 'qtd', 'qty', 'quant'],
-    un: ['unidade', 'un', 'und', 'unid', 'unidade_medida']
+    un: ['unidade', 'un', 'und', 'unid', 'unidade_medida'],
+    ean: ['ean', 'ean13', 'gtin', 'codigo_barras', 'cod_barras', 'codbarras', 'barcode']
   };
 
   function vazio() {
     return { ativo: false, url: '', auth: 'apikey', cabecalho: 'X-API-Key', timeoutMs: 8000, raiz: '',
-      campos: {}, itens: { lista: '', sku: '', descricao: '', qtd: '', un: '' },
+      campos: {}, itens: { lista: '', sku: '', descricao: '', qtd: '', un: '', ean: '' },
       regras: { situacoesBloqueadas: 'CANCELADO, BLOQUEADO', tiposEntregaAceitos: '', faturadoValores: 'FATURADO' } };
   }
   const copia = o => JSON.parse(JSON.stringify(o));
@@ -269,7 +270,7 @@ DT.erpConfig = (function () {
       const lst = itensLista();
       if (lst && lst[0] && typeof lst[0] === 'object') {
         const ci = N().caminhos(lst[0]).filter(c => c.tipo !== 'lista');
-        ['sku', 'descricao', 'qtd', 'un'].forEach(k => { if (!rasc.itens[k]) { const v = achar(SIN_ITENS[k], ci); if (v) { rasc.itens[k] = v; n++; } } });
+        ['sku', 'descricao', 'qtd', 'un', 'ean'].forEach(k => { if (!rasc.itens[k]) { const v = achar(SIN_ITENS[k], ci); if (v) { rasc.itens[k] = v; n++; } } });
       }
       return n;
     }

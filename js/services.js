@@ -300,13 +300,21 @@ DT.ag = (function () {
     // Antes da chegada, o status operacional acompanha a preparação
     if (G.ativosPreChegada.indexOf(ag.status) >= 0 && ag.status !== S.A_CAMINHO) ag.status = etapa;
   }
-  function avancarPreparacao(id, extra) {
-    if (!DT.auth.pode('preparacao.alterar')) return { ok: false, erro: 'Seu perfil não pode alterar a preparação.' };
+  /* opts.origem = 'coletor' (Modo coletor, permissão própria); sem origem = tela Preparação */
+  function avancarPreparacao(id, extra, opts) {
+    opts = opts || {};
+    const perm = opts.origem === 'coletor' ? 'coletor.operar' : 'preparacao.alterar';
+    if (!DT.auth.pode(perm)) return { ok: false, erro: opts.origem === 'coletor' ? 'Seu perfil não pode operar o coletor.' : 'Seu perfil não pode alterar a preparação.' };
     const ag = DT.db.agendamentoPorId(id);
     if (!ag) return { ok: false, erro: 'Agendamento não encontrado.' };
     if (G.finalizados.indexOf(ag.status) >= 0) return { ok: false, erro: 'Pedido já finalizado.' };
     const prox = proximaEtapa(ag);
     if (!prox) return { ok: false, erro: 'O pedido já está pronto para retirada.' };
+    if (DT.separacao) {
+      const quem = DT.separacao.quemRegistra(prox);
+      if (!opts.origem && quem) return { ok: false, erro: 'Neste modo de trabalho, a etapa "' + prox + '" é registrada ' + quem + '.' };
+      if (opts.origem === 'coletor' && quem !== 'pelo coletor') return { ok: false, erro: 'A etapa "' + prox + '" não é registrada pelo coletor.' };
+    }
     const antes = prepAtual(ag);
     if (prox === S.FATURADO) {
       const nf = (extra && extra.notaFiscal) || ag.pedido.notaFiscal;
@@ -316,26 +324,33 @@ DT.ag = (function () {
     }
     aplicarPrep(ag, prox);
     ag.etapas = ag.etapas || {};
-    ag.etapas[prox] = { ts: new Date().toISOString(), usuario: user().nome, responsavel: extra && extra.responsavel || null };
+    ag.etapas[prox] = { ts: new Date().toISOString(), usuario: user().nome, responsavel: extra && extra.responsavel || null, origem: opts.origem || 'manual' };
     let desc = 'Pedido ' + prox.toLowerCase();
     if (prox === S.EM_PREPARACAO) desc = 'Preparação iniciada';
     if (prox === S.PRONTO) desc = 'Pedido pronto para retirada';
     if (prox === S.FATURADO) desc = 'Pedido faturado — NF ' + ag.pedido.notaFiscal;
     if (extra && extra.responsavel) desc += ' (' + extra.responsavel + ')';
+    if (opts.origem === 'coletor') desc += ' — coletor' + (extra && extra.obs ? ' (' + extra.obs + ')' : '');
     evento(ag, prox, desc);
     tocar(ag);
     DT.db.salvarAgendamento(ag);
-    DT.audit.registrar('Alterou preparação', 'Agendamento', ag.pedido.numero, antes, prox);
+    DT.audit.registrar(opts.origem === 'coletor' ? 'Alterou preparação (coletor)' : 'Alterou preparação', 'Agendamento', ag.pedido.numero, antes, prox + (extra && extra.obs ? ' — ' + extra.obs : ''));
     return { ok: true, ag: ag };
   }
-  function voltarPreparacao(id, motivo) {
-    if (!DT.auth.pode('preparacao.alterar')) return { ok: false, erro: 'Seu perfil não pode alterar a preparação.' };
+  function voltarPreparacao(id, motivo, opts) {
+    opts = opts || {};
+    if (!DT.auth.pode(opts.origem === 'coletor' ? 'coletor.operar' : 'preparacao.alterar')) return { ok: false, erro: 'Seu perfil não pode alterar a preparação.' };
     const ag = DT.db.agendamentoPorId(id);
     const ant = ag && etapaAnterior(ag);
     if (!ant) return { ok: false, erro: 'Não há etapa anterior.' };
     if (!motivo || !motivo.trim()) return { ok: false, erro: 'Informe o motivo da correção.' };
     const antes = prepAtual(ag);
     aplicarPrep(ag, ant);
+    // Modo coletor: a contagem da fase desfeita recomeça
+    if (ag.coleta) {
+      if (ant === S.AGENDADO || ant === S.EM_PREPARACAO) { ag.coleta.fase = 'separacao'; ag.coleta.separacao = {}; ag.coleta.conferencia = {}; }
+      else if (ant === S.SEPARADO) { ag.coleta.fase = 'conferencia'; ag.coleta.conferencia = {}; }
+    }
     evento(ag, ant, 'Etapa corrigida de "' + antes + '" para "' + ant + '". Motivo: ' + motivo);
     tocar(ag);
     DT.db.salvarAgendamento(ag);

@@ -104,8 +104,14 @@ DT.views.preparacao = (function () {
     const todosDia = DT.db.agendamentos().filter(a => a.data === view.data && G.finalizados.indexOf(a.status) < 0);
     const cont = e => todosDia.filter(a => DT.ag.prepAtual(a) === e).length;
 
+    const modo = DT.separacao.modo(), sync = DT.separacao.ultimoSincronismo();
+    const avisoModo = modo === 'manual' ? '' :
+      '<div class="notice info">' + ui.icon(modo === 'erp' ? 'refresh' : 'scan') + '<div><b>Modo de trabalho: ' + esc(DT.separacao.infoModo().titulo) + '.</b> ' +
+        (modo === 'erp' ? 'As etapas mapeadas são atualizadas pelo ERP a cada minuto.' + (sync ? ' Última leitura: ' + U.fmtHora(sync.ts) + (sync.erro ? ' — <b>' + esc(sync.erro) + '</b>' : ' (' + sync.verificados + ' pedido(s) verificados, ' + sync.atualizados.length + ' atualizado(s))') + '.' : '') +
+          (DT.db.modoNuvem() ? ' <button type="button" class="btn sm" id="pp-sync">' + ui.icon('refresh', 'icon-sm') + 'Ler o ERP agora</button>' : '')
+          : 'Separação e conferência são registradas no <b>Modo coletor</b>; aqui ficam o faturamento e a liberação para retirada.') + '</div></div>';
     el.innerHTML =
-      '<div class="page-intro"><p>Pedidos do Drive Thru precisam estar separados, conferidos e faturados antes da chegada do cliente. Avance cada pedido pela sequência abaixo.</p></div>' +
+      '<div class="page-intro"><p>Pedidos do Drive Thru precisam estar separados, conferidos e faturados antes da chegada do cliente. Avance cada pedido pela sequência abaixo.</p></div>' + avisoModo +
       '<section class="card"><div class="card-body">' +
         '<div class="row" style="align-items:end">' +
           '<div class="field"><label for="pp-data">Data da retirada</label><input type="date" id="pp-data" class="input" value="' + view.data + '" style="width:170px"></div>' +
@@ -120,11 +126,12 @@ DT.views.preparacao = (function () {
         return '<tr><td class="time">' + a.hora + '</td><td>' + ui.tag(a.pedido.numero) + '</td>' +
           '<td><b>' + esc(a.pedido.cliente) + '</b><div class="subtle">' + (a.status !== prep ? ui.badge(a.status) : esc(a.pedido.formaPagamento)) + '</div></td>' +
           '<td class="r mono">' + a.pedido.qtdItens + '</td>' +
-          '<td>' + DT.opUI.stepsHTML(a) + '</td>' +
+          '<td>' + DT.opUI.stepsHTML(a) + progressoColeta(a) + '</td>' +
           '<td><div class="row" style="gap:4px">' + (ui.alertChips(a) || '<span class="subtle">No prazo</span>') + '</div></td>' +
           '<td class="r"><div class="row end" style="flex-wrap:nowrap">' +
             (DT.ag.etapaAnterior(a) ? '<button type="button" class="btn ghost sm" data-voltar="' + a.id + '" title="Corrigir: voltar uma etapa">' + ui.icon('back', 'icon-sm') + '</button>' : '') +
-            (prox ? '<button type="button" class="btn ' + (prox === S.PRONTO ? 'success' : 'primary') + ' sm" data-avancar="' + a.id + '">' + esc(ACAO[prep] || 'Avançar') + '</button>' : '<span class="subtle">Pronto</span>') +
+            (prox ? (DT.separacao.quemRegistra(prox) ? '<span class="subtle" title="A etapa ' + esc(prox) + ' é registrada ' + esc(DT.separacao.quemRegistra(prox)) + '">' + ui.icon(DT.separacao.quemRegistra(prox) === 'pelo ERP' ? 'refresh' : 'scan', 'icon-sm') + ' Aguarda ' + (DT.separacao.quemRegistra(prox) === 'pelo ERP' ? 'ERP' : 'coletor') + '</span>'
+              : '<button type="button" class="btn ' + (prox === S.PRONTO ? 'success' : 'primary') + ' sm" data-avancar="' + a.id + '">' + esc(ACAO[prep] || 'Avançar') + '</button>') : '<span class="subtle">Pronto</span>') +
           '</div></td></tr>';
       }).join('') : '<tr><td colspan="7">' + ui.empty('Nenhum pedido pendente de preparação para esta data.', 'box') + '</td></tr>') +
       '</tbody></table></div></section>';
@@ -133,6 +140,25 @@ DT.views.preparacao = (function () {
     el.querySelector('#pp-prontos').addEventListener('change', e => { view.mostrarProntos = e.target.checked; desenhar(); });
     el.querySelectorAll('[data-avancar]').forEach(b => b.addEventListener('click', () => avancar(b.dataset.avancar)));
     el.querySelectorAll('[data-voltar]').forEach(b => b.addEventListener('click', () => voltar(b.dataset.voltar)));
+    const sb = el.querySelector('#pp-sync');
+    if (sb) sb.addEventListener('click', async () => {
+      sb.disabled = true; sb.innerHTML = '<span class="spinner"></span>Lendo o ERP…';
+      try { const r = await DT.separacao.sincronizar(true); ui.toast(r && r.ignorado ? 'O ERP acabou de ser lido. Tente de novo em alguns segundos.' : 'ERP lido: ' + ((r && r.atualizados) || []).length + ' pedido(s) atualizado(s).'); }
+      catch (e) { ui.toast(e.message, 'err'); }
+      desenhar();
+    });
+  }
+  /* Progresso do Modo coletor (item a item) */
+  function progressoColeta(a) {
+    const c = a.coleta;
+    if (!c || !c.fase) return '';
+    const div = c.divergencias && c.divergencias.length ? '<b class="crit-txt">' + c.divergencias.length + ' divergência(s) no coletor</b>' : '';
+    if ((c.fase !== 'separacao' && c.fase !== 'conferencia') || !a.pedido.itens || !a.pedido.itens.length || c.fase !== ({ 'Agendado': 'separacao', 'Em preparação': 'separacao', 'Separado': 'conferencia' })[DT.ag.prepAtual(a)])
+      return div ? '<div class="subtle" style="margin-top:4px">' + ui.icon('alert', 'icon-sm') + ' ' + div + '</div>' : '';
+    const total = a.pedido.itens.reduce((s, i) => s + (Number(i.qtd) || 0), 0);
+    const lidos = Object.keys(c[c.fase] || {}).reduce((s, k) => s + (c[c.fase][k] || 0), 0);
+    return '<div class="subtle" style="margin-top:4px">' + ui.icon('scan', 'icon-sm') + ' ' + (c.fase === 'conferencia' ? 'Conferência' : 'Separação') + ' no coletor: ' + lidos + '/' + total +
+      (div ? ' · ' + div : '') + '</div>';
   }
 
   function avancar(id) {

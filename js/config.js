@@ -8,7 +8,7 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.7.0',
+  versao: '0.8.0',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10,
   /* Responsável pelo projeto — exibido na barra superior, antes do relógio */
@@ -105,6 +105,7 @@ DT.PERMISSOES = {
   'agenda.ver': 'Consultar agenda',
   'pedido.acompanhar': 'Ver linha do tempo do pedido',
   'preparacao.alterar': 'Alterar status de preparação / conferência',
+  'coletor.operar': 'Operar o coletor (bipe na separação e conferência)',
   'checkin.registrar': 'Registrar chegada do cliente',
   'checkin.horarioManual': 'Informar horário manual (exceção)',
   'atendimento.registrar': 'Registrar atendimento e carregamento',
@@ -125,7 +126,11 @@ DT.DEFAULT_PERFIS = {
   },
   logistica: {
     nome: 'Logística',
-    permissoes: ['agenda.ver', 'pedido.acompanhar', 'preparacao.alterar', 'checkin.registrar', 'atendimento.registrar', 'entrega.finalizar', 'dashboard.ver']
+    permissoes: ['agenda.ver', 'pedido.acompanhar', 'preparacao.alterar', 'coletor.operar', 'checkin.registrar', 'atendimento.registrar', 'entrega.finalizar', 'dashboard.ver']
+  },
+  coletor: {
+    nome: 'Operador de coletor',
+    permissoes: ['coletor.operar']
   },
   gestor: {
     nome: 'Gestor',
@@ -145,6 +150,7 @@ DT.MENU = [
   ]},
   { grupo: 'Operação', itens: [
     { id: 'preparacao', label: 'Preparação', icon: 'box', perm: 'preparacao.alterar' },
+    { id: 'coletor', label: 'Modo coletor', icon: 'scan', perm: 'coletor.operar', se: () => DT.separacao && DT.separacao.usaColetor() },
     { id: 'mapa', label: 'Mapa de chegadas', icon: 'map', perm: 'checkin.registrar' },
     { id: 'checkin', label: 'Check-in', icon: 'pin', perm: 'checkin.registrar' },
     { id: 'atendimento', label: 'Atendimento', icon: 'truck', perm: 'atendimento.registrar' },

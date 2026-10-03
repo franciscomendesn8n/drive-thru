@@ -340,14 +340,16 @@ DT.views.config = (function () {
       '</div>' +
       '<div class="row end"><button type="button" class="btn ghost" id="cf-reset">Restaurar padrão do projeto</button><button type="submit" class="btn primary lg">' + ui.icon('check') + 'Salvar configurações</button></div>' +
       '</form>' +
+      '<div id="cf-erp"></div>' +
       '<div id="cf-aparencia"></div>' +
       '<section class="card"><div class="card-head"><h3>Dados do sistema</h3></div><div class="card-body">' +
         (DT.db.modoNuvem() ? '<p class="muted">Os dados ficam no banco de dados na nuvem (Supabase) e são compartilhados por todos os usuários, em tempo real.</p>' :
           '<p class="muted">Nesta versão os dados ficam salvos neste navegador' + (DT.db.estaPersistindo() ? '' : ' (o armazenamento está bloqueado: os dados valem só para esta sessão)') + '. A integração com banco de dados e ERP substitui essa camada sem mudar as telas.</p>') +
-        '<div class="row"><button type="button" class="btn ghost" id="cf-demo">' + ui.icon('refresh') + 'Recriar dados de demonstração</button>' +
+        '<div class="row wrap"><button type="button" class="btn ghost" id="cf-demo">' + ui.icon('refresh') + 'Recriar dados de demonstração</button>' +
         '<button type="button" class="btn danger" id="cf-limpar">' + ui.icon('ban') + 'Começar operação real (apagar agendamentos)</button></div>' +
       '</div></section>';
 
+    DT.erpConfig.montar(el.querySelector('#cf-erp'));
     DT.aparencia.montarConfig(el.querySelector('#cf-aparencia'));
     const f = el.querySelector('#cf-form');
     const ler = () => ({

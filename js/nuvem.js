@@ -14,7 +14,7 @@ window.DT = window.DT || {};
 DT.nuvem = (function () {
   const cfg = DT.SUPABASE || {};
   const TAB = { agendamentos: 'dt_agendamentos', auditoria: 'dt_auditoria', funcionarios: 'dt_funcionarios', config: 'dt_config', usuarios: 'dt_usuarios' };
-  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia'];
+  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia', 'erp'];
   let sb = null, sessao = null, canal = null;
   let status = 'desconectado';           // desconectado | sincronizado | salvando | erro
   let avisouErro = false;
@@ -357,7 +357,7 @@ DT.nuvem = (function () {
     try { await sb.auth.signOut(); } catch (e) { try { await sb.auth.signOut({ scope: 'local' }); } catch (e2) { /* ignora */ } }
     saindo = false;
     sessao = null;
-    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio'].forEach(k => DT.db.memoria.gravar(k, null));
+    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio', 'erp'].forEach(k => DT.db.memoria.gravar(k, null));
   }
 
   /* ---------------------------- funções de servidor ---------------------------- */
@@ -374,6 +374,22 @@ DT.nuvem = (function () {
     await recarregarUsuarios();
     return data;
   }
+  /* Integração com o ERP (função dt-erp): a consulta e a credencial ficam no servidor */
+  async function erpAcao(acao, payload) {
+    if (!sessao) throw new Error('Entre no sistema para usar a integração com o ERP.');
+    const { data, error } = await sb.functions.invoke('dt-erp', { body: Object.assign({ acao: acao }, payload || {}) });
+    if (error) {
+      let msg = null;
+      const status = error.context && error.context.status;
+      try { const j = await error.context.json(); msg = j && j.erro; } catch (e) { /* sem corpo */ }
+      if (status === 401) { await sessaoInvalida(); msg = 'Sua sessão foi encerrada. Entre novamente.'; }
+      if (!msg && status === 404) msg = 'A função de integração (dt-erp) não está publicada no servidor.';
+      throw new Error(msg || 'Falha ao falar com o servidor.');
+    }
+    if (data && data.erro && acao !== 'testar') throw new Error(data.erro);
+    return data || {};
+  }
+  async function erpConsultar(numero) { return erpAcao('consultar', { numero: numero }); }
   async function acompanhar(codigo) {
     cliente();
     const { data, error } = await sb.rpc('dt_acompanhar', { p_codigo: codigo });
@@ -416,5 +432,5 @@ DT.nuvem = (function () {
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
     sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
-    gerenciarUsuario, acompanhar, acompanharPorPedido, aparenciaPublica, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
+    gerenciarUsuario, erpAcao, erpConsultar, acompanhar, acompanharPorPedido, aparenciaPublica, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
 })();

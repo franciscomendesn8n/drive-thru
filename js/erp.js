@@ -169,6 +169,11 @@ DT.ERP = (function () {
   async function buscarPedido(numero) {
     numero = String(numero || '').replace(/\D/g, '');
     if (!numero) return null;
+    /* Integração configurada em Configurações › Integração com o ERP (consulta feita pelo servidor) */
+    if (DT.erpConfig && DT.erpConfig.emUso()) {
+      const r = await DT.nuvem.erpConsultar(numero);
+      return r && r.encontrado && r.pedido ? r.pedido : null;
+    }
     if (DT.ERP_CONFIG.modo === 'api') {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), DT.ERP_CONFIG.timeoutMs);

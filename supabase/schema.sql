@@ -330,3 +330,42 @@ create trigger dt_limpar_rastreio after update of status on public.dt_agendament
 alter publication supabase_realtime add table
   public.dt_usuarios, public.dt_config, public.dt_funcionarios,
   public.dt_agendamentos, public.dt_auditoria, public.dt_rastreio;
+
+-- ---------------------------------------------------------------------
+-- 7. Integração com o ERP: credencial guardada no cofre (Vault), criptografada.
+--    Só a função de servidor dt-erp (chave de serviço) usa estas funções;
+--    o navegador nunca lê a credencial.
+-- ---------------------------------------------------------------------
+create or replace function public.dt_erp_credencial_salvar(p_valor text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_id uuid;
+begin
+  select id into v_id from vault.secrets where name = 'dt_erp_credencial';
+  if coalesce(p_valor, '') = '' then
+    if v_id is not null then delete from vault.secrets where id = v_id; end if;
+    return;
+  end if;
+  if v_id is null then
+    perform vault.create_secret(p_valor, 'dt_erp_credencial', 'Credencial do ERP (Drive Thru)');
+  else
+    perform vault.update_secret(v_id, p_valor);
+  end if;
+end $$;
+
+create or replace function public.dt_erp_credencial_ler()
+returns text language sql stable security definer set search_path = '' as $$
+  select decrypted_secret from vault.decrypted_secrets where name = 'dt_erp_credencial' limit 1;
+$$;
+
+create or replace function public.dt_erp_credencial_status()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('definida', exists (select 1 from vault.secrets where name = 'dt_erp_credencial'),
+                            'atualizadaEm', (select updated_at from vault.secrets where name = 'dt_erp_credencial'));
+$$;
+
+revoke all on function public.dt_erp_credencial_salvar(text) from public, anon, authenticated;
+revoke all on function public.dt_erp_credencial_ler() from public, anon, authenticated;
+revoke all on function public.dt_erp_credencial_status() from public, anon, authenticated;
+grant execute on function public.dt_erp_credencial_salvar(text) to service_role;
+grant execute on function public.dt_erp_credencial_ler() to service_role;
+grant execute on function public.dt_erp_credencial_status() to service_role;

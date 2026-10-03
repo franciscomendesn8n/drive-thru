@@ -7,6 +7,8 @@ Nenhum arquivo aqui contém dados, senhas ou chaves secretas.
 |---|---|
 | `schema.sql` | Tabelas, índices, regras de acesso (RLS), funções, gatilho e tempo real |
 | `functions/dt-usuarios/index.ts` | Função de servidor que cria e altera usuários e senhas |
+| `functions/dt-erp/` (`index.ts` + `erp-nucleo.js`) | Função de servidor que consulta pedidos no ERP e guarda a credencial no cofre |
+| `functions/dt-erp-demo/index.ts` | "ERP de demonstração" — API de teste com pedidos fictícios (opcional) |
 
 ## Passo a passo
 
@@ -15,6 +17,8 @@ Nenhum arquivo aqui contém dados, senhas ou chaves secretas.
 3. **Função de usuários:** publique `functions/dt-usuarios` com o nome **dt-usuarios**
    (painel *Edge Functions › Deploy a new function*, ou `supabase functions deploy dt-usuarios`).
    Mantenha a verificação de JWT ligada. A chave de serviço é fornecida pelo próprio Supabase.
+   Publique também **dt-erp** (pasta `functions/dt-erp`, com os dois arquivos; JWT ligado) e, se quiser
+   o ERP de demonstração, **dt-erp-demo** (JWT **desligado** — ele tem a própria chave de teste).
 4. **Login (Authentication):**
    - *Sign In / Providers › Email*: ligado; **desligue "Allow new users to sign up"** (usuários são criados só pelo administrador) e desligue a confirmação por e-mail.
    - *Password requirements*: mínimo de 8 caracteres, com minúscula, maiúscula, número e símbolo (mesma regra do aplicativo).
@@ -50,3 +54,29 @@ O usuário digita só o login (ex.: `joao.silva`); o aplicativo entra no Supabas
   cancelamento, não comparecimento, conclusão ou após 6 horas.
 
 O script foi testado em um PostgreSQL limpo e reproduz a estrutura do projeto em uso em 30/09/2026.
+
+## Integração com o ERP (Configurações › Integração com o ERP)
+
+O administrador liga o ERP sem mexer no código, em 6 passos:
+
+1. **Conexão** — endereço HTTPS da API que devolve um pedido, com `{numero}` no lugar do número
+   (ex.: `https://erp.empresa.com.br/api/pedidos/{numero}`), tipo de autenticação e tempo máximo.
+2. **Credencial** — chave, token ou `usuario:senha`. Vai direto para o cofre (Vault), criptografada;
+   nunca volta para a tela nem fica no navegador.
+3. **Resposta do ERP** — consulta um pedido real (ou cola um exemplo em JSON) e indica onde está o pedido.
+4. **Campos (de-para)** — liga cada informação do Drive Thru ao campo do ERP, com sugestão automática
+   e o valor do exemplo ao lado.
+5. **Regras** — situações que bloqueiam, tipos de entrega aceitos e valores que indicam "faturado".
+6. **Testar e ativar** — teste no ERP pelo servidor; só depois de um teste bem-sucedido é possível ativar.
+   Dá para desativar a qualquer momento (o agendamento volta à base de demonstração).
+
+Requisitos da TI: a API do ERP precisa responder em **HTTPS pela internet** (endereços internos são
+bloqueados). Se o ERP só existe na rede interna, publique um serviço intermediário com HTTPS e
+liberação apenas dos IPs do Supabase.
+
+**ERP de demonstração:** em *Conexão*, clique em "Preencher com o ERP de demonstração" e, em *Credencial*,
+em "Usar a chave do ERP de demonstração". Pedidos: 130004 a 130013 (liberados), 140001 (cancelado),
+140002 (entrega, não é retirada) e 140003 (já faturado, NF 456789).
+
+> O arquivo `js/erp-nucleo.js` (aplicativo) e `functions/dt-erp/erp-nucleo.js` (servidor) devem ser
+> **idênticos** — ao alterar um, copie para o outro e publique a função dt-erp de novo.

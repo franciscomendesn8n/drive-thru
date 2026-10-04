@@ -301,7 +301,7 @@ DT.views.relatorios = (function () {
       const medF = ls => U.media([].concat(...ls.map(l => l.tempos)));
       resumo = [['Pedidos separados', sep.reduce((s, l) => s + l.pedidos, 0)], ['Separação média', dur(medF(sep))], ['Pedidos conferidos', conf.reduce((s, l) => s + l.pedidos, 0)], ['Conferência média', dur(medF(conf))]];
       const max = Math.max(1, ...linhas.map(l => l.porHora || 0));
-      barras = { titulo: 'Itens por hora (separação e conferência)', itens: linhas.filter(l => l.porHora).map(l => ({ rot: l.nome.split(' ')[0] + ' · ' + l.fase.slice(0, 4) + '.', pct: l.porHora / max * 100, txt: l.porHora + '/h', cls: l.fase === 'Separação' ? 'ok' : '' })) };
+      barras = { titulo: 'Itens por hora (separação e conferência)', larga: true, itens: linhas.filter(l => l.porHora).map(l => ({ rot: l.nome.split(' ')[0] + ' · ' + (l.fase === 'Separação' ? 'separação' : 'conferência'), pct: l.porHora / max * 100, txt: l.porHora + '/h', cls: l.fase === 'Separação' ? 'ok' : '' })) };
     }
     if (tipo === 'divergencias') {
       const p = {};
@@ -325,7 +325,7 @@ DT.views.relatorios = (function () {
       const nPed = new Set(ags.filter(a => a.coleta && a.coleta.divergencias && a.coleta.divergencias.length).map(a => a.id)).size;
       resumo = [['Produtos com divergência', linhas.length], ['Ocorrências', linhas.reduce((s, l) => s + l.vezes, 0)], ['Pedidos afetados', nPed]];
       const max = Math.max(1, ...linhas.map(l => l.vezes));
-      barras = { titulo: 'Produtos com mais divergências', itens: linhas.slice(0, 10).map(l => ({ rot: (l.descricao || '').slice(0, 18), pct: l.vezes / max * 100, txt: String(l.vezes), cls: 'crit' })) };
+      barras = { titulo: 'Produtos com mais divergências', larga: true, itens: linhas.slice(0, 10).map(l => ({ rot: (l.descricao || '').length > 24 ? l.descricao.slice(0, 23) + '…' : (l.descricao || ''), pct: l.vezes / max * 100, txt: String(l.vezes), cls: 'crit' })) };
     }
     if (tipo === 'metas') {
       const dias = {};
@@ -410,7 +410,7 @@ DT.views.relatorios = (function () {
             '<button type="button" class="btn ghost sm" id="rl-csv">' + ui.icon('download', 'icon-sm') + 'Exportar CSV</button>' +
             '<button type="button" class="btn primary sm" id="rl-pdf">' + ui.icon('download', 'icon-sm') + 'Exportar PDF</button></div></div>' +
             '<div class="card-body"><div class="stat-strip">' + res.resumo.map(r => '<div class="stat"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>').join('') + '</div>' +
-            (res.barras && res.barras.itens.length ? '<div class="stack" style="gap:8px"><span class="label">' + esc(res.barras.titulo) + '</span><div class="bars">' + res.barras.itens.map(b =>
+            (res.barras && res.barras.itens.length ? '<div class="stack" style="gap:8px"><span class="label">' + esc(res.barras.titulo) + '</span><div class="bars' + (res.barras.larga ? ' larga' : '') + '">' + res.barras.itens.map(b =>
               '<div class="bar-row"><span class="mono">' + esc(b.rot) + '</span><div class="bar-track"><div class="bar-fill ' + (b.cls || '') + '" style="width:' + Math.max(2, b.pct) + '%"></div></div><span class="mono subtle" style="text-align:right">' + esc(b.txt) + '</span></div>').join('') + '</div></div>' : '') +
             '</div>' +
             '<div class="table-wrap"><table class="table"><thead><tr>' + res.colunas.map(c => '<th' + (c.r ? ' class="r"' : '') + '>' + esc(c.label) + '</th>').join('') + '</tr></thead><tbody>' +

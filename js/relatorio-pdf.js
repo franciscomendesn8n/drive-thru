@@ -134,7 +134,7 @@ DT.relatorioPDF = (function () {
     if (!b || !b.itens || !b.itens.length) return y;
     const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
     const itens = b.itens.slice(0, 24);
-    const alt = 5.2, rotW = 22, valW = 18;
+    const alt = 5.2, rotW = b.larga ? 52 : 22, valW = 18;
     if (y + 9 + itens.length * alt > H - 20) { doc.addPage(); y = topoPagina(); }
     titulo(doc, b.titulo, y); y += 6;
     const x0 = 14 + rotW, trilho = W - 28 - rotW - valW;

@@ -77,7 +77,7 @@ bloqueados). Se o ERP só existe na rede interna, publique um serviço intermedi
 liberação apenas dos IPs do Supabase.
 
 **ERP de demonstração:** em *Conexão*, clique em "Preencher com o ERP de demonstração" e, em *Credencial*,
-em "Usar a chave do ERP de demonstração". Pedidos: 130004 a 130013 (liberados), 140001 (cancelado),
+em "Usar a chave do ERP de demonstração". Pedidos: 220001 a 220010 (liberados), 140001 (cancelado),
 140002 (entrega, não é retirada) e 140003 (já faturado, NF 456789).
 
 > O arquivo `js/erp-nucleo.js` (aplicativo) e `functions/dt-erp/erp-nucleo.js` (servidor) devem ser

@@ -152,8 +152,8 @@ DT.erpConfig = (function () {
     }
     function exemploUrl() {
       if (!rasc.url) return 'Exemplo: https://erp.suaempresa.com.br/api/pedidos/{numero}';
-      const u = N().montarUrl({ url: rasc.url.split('{SUPABASE}').join(DT.SUPABASE.url || '') }, '130004');
-      return 'Para o pedido 130004 será consultado: <span class="mono">' + esc(u) + '</span>';
+      const u = N().montarUrl({ url: rasc.url.split('{SUPABASE}').join(DT.SUPABASE.url || '') }, '220001');
+      return 'Para o pedido 220001 será consultado: <span class="mono">' + esc(u) + '</span>';
     }
 
     /* ----------------------------- Passo 2 ----------------------------- */
@@ -326,7 +326,7 @@ DT.erpConfig = (function () {
           '<div id="erp-f-res">' + (teste && teste.assinatura === assinatura() ? resultadoTeste() : '') + '</div>' +
         '</div>' +
         '<div class="ap-bloco"><h4>Salvar e ativar</h4>' +
-          '<p class="muted">' + (s && s.ativo ? 'Situação atual: <b>o agendamento consulta o ERP</b>.' : 'Situação atual: <b>o agendamento usa a base de demonstração</b> (pedidos 130001 a 130013).') +
+          '<p class="muted">' + (s && s.ativo ? 'Situação atual: <b>o agendamento consulta o ERP</b>.' : 'Situação atual: <b>o agendamento usa a base de demonstração</b> (pedidos 130001 a 130003 e 220001 a 220010).') +
           ' Ao ativar o ERP, só são encontrados pedidos que existem no ERP configurado.</p>' +
           '<div class="row wrap">' +
             '<button type="button" class="btn" id="erp-salvar">' + ui.icon('check') + 'Salvar configuração</button>' +

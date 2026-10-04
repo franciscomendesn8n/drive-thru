@@ -92,7 +92,7 @@ DT.ERP = (function () {
     base[125902] = montar(125902, { cliente: 'Reforma Já', diasAtras: 1, elegivel: false, situacao: 'Cancelado', motivo: 'Pedido cancelado no ERP.' });
 
     // Pedidos para a apresentação à diretoria (processo completo, do zero).
-    // 130001 = pedido da apresentação · 130002 a 130013 = pedidos extras de teste
+    // 130001 = pedido da apresentação · 130002, 130003 e 220001 a 220010 = pedidos extras de teste
     const ITENS_APRESENTACAO = [
       ['100231', 'Cimento CP-II 50kg', 20, 'SC', 38.90],
       ['100874', 'Argamassa AC-II 20kg', 10, 'SC', 24.50],
@@ -106,18 +106,18 @@ DT.ERP = (function () {
       base[n].apresentacao = true;
     });
 
-    // Mais 10 pedidos de teste (130004 a 130013): sem agendamento, data do pedido = hoje
+    // Mais 10 pedidos de teste (220001 a 220010): sem agendamento, data do pedido = hoje
     const TESTES = [
-      [130004, 'Marcos Vinícius Andrade', '(61) 99812-4004', 'Inácio Sardinha', 'PIX', [['100231', 'Cimento CP-II 50kg', 15, 'SC', 38.90], ['100640', 'Cal hidratada 20kg', 10, 'SC', 16.90]]],
-      [130005, 'Construtora Horizonte', '(61) 3344-4005', 'Inácio Sardinha', 'Boleto', [['200390', 'Bloco de concreto 14x19x39', 400, 'UN', 3.85], ['100733', 'Brita 1 ensacada 20kg', 40, 'SC', 8.40]]],
-      [130006, 'Ana Paula Ferreira', '(61) 98123-4006', 'João Silva', 'Cartão de crédito', [['700118', 'Tinta acrílica fosca 18L', 3, 'LT', 389.00], ['600902', 'Rejunte flexível 1kg', 6, 'UN', 14.90]]],
-      [130007, 'Reformas Bom Lar', '(61) 99555-4007', 'Fernanda Rocha', 'PIX', [['600741', 'Porcelanato 60x60 (cx 1,44m²)', 25, 'CX', 92.90], ['100874', 'Argamassa AC-II 20kg', 18, 'SC', 24.50]]],
-      [130008, 'Carlos Eduardo Lima', '(61) 98444-4008', 'Inácio Sardinha', 'Dinheiro', [['400310', 'Tubo PVC esgoto 100mm 6m', 8, 'BR', 72.50], ['900211', 'Cabo flexível 2,5mm rolo 100m', 2, 'RL', 289.00]]],
-      [130009, 'Edificar Engenharia', '(61) 3033-4009', 'João Silva', 'Faturado 28 dias', [['300088', 'Vergalhão CA-50 10mm 12m', 40, 'BR', 54.90], ['100231', 'Cimento CP-II 50kg', 60, 'SC', 38.90]]],
-      [130010, 'Patrícia Souza', '(61) 99100-4010', 'Fernanda Rocha', 'Cartão de débito', [["800050", "Caixa d'água 1000L", 1, 'UN', 549.00], ['400310', 'Tubo PVC esgoto 100mm 6m', 3, 'BR', 72.50]]],
-      [130011, 'Depósito Santa Rita', '(61) 99654-4011', 'Inácio Sardinha', 'Boleto', [['500027', 'Telha fibrocimento 2,44 x 1,10m', 30, 'UN', 64.90], ['100512', 'Areia média ensacada 20kg', 50, 'SC', 7.90]]],
-      [130012, 'Roberto Nunes', '(61) 98989-4012', 'João Silva', 'PIX', [['200145', 'Tijolo cerâmico 8 furos (milheiro)', 3, 'MIL', 890.00], ['100231', 'Cimento CP-II 50kg', 25, 'SC', 38.90]]],
-      [130013, 'Mestre Obras Acabamentos', '(61) 99777-4013', 'Fernanda Rocha', 'Cartão de crédito', [['600741', 'Porcelanato 60x60 (cx 1,44m²)', 12, 'CX', 92.90], ['600902', 'Rejunte flexível 1kg', 10, 'UN', 14.90], ['700118', 'Tinta acrílica fosca 18L', 2, 'LT', 389.00]]]
+      [220001, 'Marcos Vinícius Andrade', '(61) 99812-4004', 'Inácio Sardinha', 'PIX', [['100231', 'Cimento CP-II 50kg', 15, 'SC', 38.90], ['100640', 'Cal hidratada 20kg', 10, 'SC', 16.90]]],
+      [220002, 'Construtora Horizonte', '(61) 3344-4005', 'Inácio Sardinha', 'Boleto', [['200390', 'Bloco de concreto 14x19x39', 400, 'UN', 3.85], ['100733', 'Brita 1 ensacada 20kg', 40, 'SC', 8.40]]],
+      [220003, 'Ana Paula Ferreira', '(61) 98123-4006', 'João Silva', 'Cartão de crédito', [['700118', 'Tinta acrílica fosca 18L', 3, 'LT', 389.00], ['600902', 'Rejunte flexível 1kg', 6, 'UN', 14.90]]],
+      [220004, 'Reformas Bom Lar', '(61) 99555-4007', 'Fernanda Rocha', 'PIX', [['600741', 'Porcelanato 60x60 (cx 1,44m²)', 25, 'CX', 92.90], ['100874', 'Argamassa AC-II 20kg', 18, 'SC', 24.50]]],
+      [220005, 'Carlos Eduardo Lima', '(61) 98444-4008', 'Inácio Sardinha', 'Dinheiro', [['400310', 'Tubo PVC esgoto 100mm 6m', 8, 'BR', 72.50], ['900211', 'Cabo flexível 2,5mm rolo 100m', 2, 'RL', 289.00]]],
+      [220006, 'Edificar Engenharia', '(61) 3033-4009', 'João Silva', 'Faturado 28 dias', [['300088', 'Vergalhão CA-50 10mm 12m', 40, 'BR', 54.90], ['100231', 'Cimento CP-II 50kg', 60, 'SC', 38.90]]],
+      [220007, 'Patrícia Souza', '(61) 99100-4010', 'Fernanda Rocha', 'Cartão de débito', [["800050", "Caixa d'água 1000L", 1, 'UN', 549.00], ['400310', 'Tubo PVC esgoto 100mm 6m', 3, 'BR', 72.50]]],
+      [220008, 'Depósito Santa Rita', '(61) 99654-4011', 'Inácio Sardinha', 'Boleto', [['500027', 'Telha fibrocimento 2,44 x 1,10m', 30, 'UN', 64.90], ['100512', 'Areia média ensacada 20kg', 50, 'SC', 7.90]]],
+      [220009, 'Roberto Nunes', '(61) 98989-4012', 'João Silva', 'PIX', [['200145', 'Tijolo cerâmico 8 furos (milheiro)', 3, 'MIL', 890.00], ['100231', 'Cimento CP-II 50kg', 25, 'SC', 38.90]]],
+      [220010, 'Mestre Obras Acabamentos', '(61) 99777-4013', 'Fernanda Rocha', 'Cartão de crédito', [['600741', 'Porcelanato 60x60 (cx 1,44m²)', 12, 'CX', 92.90], ['600902', 'Rejunte flexível 1kg', 10, 'UN', 14.90], ['700118', 'Tinta acrílica fosca 18L', 2, 'LT', 389.00]]]
     ];
     TESTES.forEach(([n, cliente, telefone, vendedor, pagamento, itens]) => {
       base[n] = montar(n, { cliente, telefone, vendedor, pagamento, situacao: 'Aprovado', faturado: false, diasAtras: 0, itens });

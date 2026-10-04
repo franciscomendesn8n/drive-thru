@@ -1,0 +1,22 @@
+name: Testes automáticos
+on:
+  push:
+  pull_request:
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar Playwright
+        run: |
+          pip install playwright==1.47.0
+          python -m playwright install --with-deps chromium
+      - name: Conferir sintaxe dos scripts
+        run: for f in js/*.js; do node --check "$f"; done
+      - name: Núcleo do ERP igual no site e no servidor
+        run: cmp js/erp-nucleo.js supabase/functions/dt-erp/erp-nucleo.js
+      - name: Teste das telas e permissões
+        run: python tests/teste_fumaca.py

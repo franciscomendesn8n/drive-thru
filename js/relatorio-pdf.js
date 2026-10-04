@@ -29,7 +29,10 @@ DT.relatorioPDF = (function () {
     naocompareceu: 'Agendamentos em que o cliente não compareceu, com contato para retorno do Comercial e a taxa de ausência do período.',
     tempomedio: 'Médias diárias de espera, atendimento e tempo total das retiradas concluídas.',
     produtividade: 'Carregamentos, atendimentos em doca, itens carregados e tempo médio por funcionário da Logística.',
-    janelas: 'Vagas ofertadas e ocupadas por janela de horário, com ausências e cancelamentos — base para ajustar a capacidade.'
+    janelas: 'Vagas ofertadas e ocupadas por janela de horário, com ausências e cancelamentos — base para ajustar a capacidade.',
+    separacao: 'Pedidos, itens, tempo médio e itens por hora de cada operador na separação e na conferência, com as divergências registradas.',
+    divergencias: 'Produtos que faltaram na separação ou na conferência, com endereço no CD, quantidade faltante e pedidos afetados.',
+    metas: 'Percentual de pedidos prontos antes da chegada do cliente e de clientes atendidos dentro do tempo-meta, dia a dia, comparado às metas.'
   };
 
   let logoCache = null;

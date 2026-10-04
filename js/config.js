@@ -8,7 +8,7 @@ window.DT = window.DT || {};
 DT.APP = {
   nome: 'Drive Thru',
   subtitulo: 'Materiais para Construção',
-  versao: '0.8.2',
+  versao: '0.9.0',
   storagePrefix: 'dt_app_v1_',
   sessaoHoras: 10,
   /* Responsável pelo projeto — exibido na barra superior, antes do relógio */
@@ -38,7 +38,21 @@ DT.DEFAULT_SETTINGS = {
   lgpdEncarregado: '',           // contato do Encarregado de Dados (DPO), exibido no termo
   rastreioAtivo: true,           // cliente pode compartilhar a localização a caminho do Drive Thru
   localCD: null,                 // { lat, lng, endereco } — ponto de chegada exibido no mapa
-  raioChegadaKm: 2               // distância para o alerta "cliente chegando"
+  raioChegadaKm: 2,              // distância para o alerta "cliente chegando"
+  /* 0.9 — operação */
+  rotaSeparacao: true,           // coletor e romaneio em ordem de Rua → Prédio → Nível → Apartamento
+  impressaoFormato: 'romaneio',  // 'romaneio' (A4) ou 'etiqueta' (10 x 15 cm)
+  checkinQR: true,               // página do cliente mostra o QR de chegada
+  painelNome: 'primeiro',        // painel de TV: 'primeiro' nome, 'completo' ou 'oculto'
+  painelPlaca: true,             // painel de TV mostra a placa na chamada
+  painelChamadaMin: 5,           // por quantos minutos a chamada fica em destaque
+  /* 0.9 — metas */
+  metaProntoAntesPct: 90,        // % de pedidos prontos antes da chegada do cliente
+  metaAtendimentoMin: 15,        // atender em até X minutos após a chegada
+  metaAtendidosPct: 80,          // % de clientes atendidos dentro do prazo acima
+  /* 0.9 — LGPD */
+  retencaoAgendamentosMeses: 0,  // 0 = não apagar; retiradas encerradas há mais de X meses são apagadas
+  retencaoAuditoriaMeses: 0      // 0 = não apagar
 };
 
 /* Status operacionais (item 9 do escopo) */
@@ -111,6 +125,7 @@ DT.PERMISSOES = {
   'atendimento.registrar': 'Registrar atendimento e carregamento',
   'entrega.finalizar': 'Registrar entrega e finalizar retirada',
   'dashboard.ver': 'Visualizar dashboard operacional',
+  'painel.ver': 'Ver o painel de TV do Drive Thru',
   'relatorios.ver': 'Gerar relatórios e indicadores',
   'auditoria.ver': 'Consultar histórico/auditoria',
   'usuarios.gerenciar': 'Criar usuários e alterar permissões',
@@ -126,7 +141,7 @@ DT.DEFAULT_PERFIS = {
   },
   logistica: {
     nome: 'Logística',
-    permissoes: ['agenda.ver', 'pedido.acompanhar', 'preparacao.alterar', 'coletor.operar', 'checkin.registrar', 'atendimento.registrar', 'entrega.finalizar', 'dashboard.ver']
+    permissoes: ['agenda.ver', 'pedido.acompanhar', 'preparacao.alterar', 'coletor.operar', 'checkin.registrar', 'atendimento.registrar', 'entrega.finalizar', 'dashboard.ver', 'painel.ver']
   },
   coletor: {
     nome: 'Operador de coletor',
@@ -134,7 +149,7 @@ DT.DEFAULT_PERFIS = {
   },
   gestor: {
     nome: 'Gestor',
-    permissoes: ['agenda.ver', 'pedido.acompanhar', 'dashboard.ver', 'relatorios.ver', 'auditoria.ver']
+    permissoes: ['agenda.ver', 'pedido.acompanhar', 'dashboard.ver', 'relatorios.ver', 'auditoria.ver', 'painel.ver']
   },
   admin: {
     nome: 'Administrador',
@@ -155,7 +170,8 @@ DT.MENU = [
     { id: 'checkin', label: 'Check-in', icon: 'pin', perm: 'checkin.registrar' },
     { id: 'atendimento', label: 'Atendimento', icon: 'truck', perm: 'atendimento.registrar' },
     { id: 'entrega', label: 'Entrega', icon: 'check', perm: 'entrega.finalizar' },
-    { id: 'pedido', label: 'Acompanhar pedido', icon: 'timeline', perm: 'pedido.acompanhar' }
+    { id: 'pedido', label: 'Acompanhar pedido', icon: 'timeline', perm: 'pedido.acompanhar' },
+    { id: 'painel', label: 'Painel de TV', icon: 'tv', perm: 'painel.ver' }
   ]},
   { grupo: 'Gestão', itens: [
     { id: 'dashboard', label: 'Dashboard', icon: 'grid', perm: 'dashboard.ver' },

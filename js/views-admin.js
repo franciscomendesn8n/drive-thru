@@ -287,10 +287,31 @@ DT.views.config = (function () {
     diasAgendaAFrente: 'Dias de agenda aberta', toleranciaMin: 'Tolerância', noShowMin: 'Prazo para não comparecimento',
     preparacaoCriticaMin: 'Aviso de preparação crítica', limiteItens: 'Limite de itens', docas: 'Docas', unidade: 'Unidade',
     lgpdModo: 'Exibição do termo LGPD', lgpdEncarregado: 'Encarregado de Dados (DPO)',
-    rastreioAtivo: 'Localização do cliente a caminho', raioChegadaKm: 'Raio do alerta de chegada (km)'
+    rastreioAtivo: 'Localização do cliente a caminho', raioChegadaKm: 'Raio do alerta de chegada (km)',
+    rotaSeparacao: 'Itens na ordem da rota do CD', impressaoFormato: 'Impressão padrão', checkinQR: 'QR de chegada do cliente',
+    painelNome: 'Nome no painel de TV', painelPlaca: 'Placa no painel de TV', painelChamadaMin: 'Tempo da chamada no painel',
+    metaProntoAntesPct: 'Meta: prontos antes da chegada', metaAtendimentoMin: 'Meta: tempo até a doca', metaAtendidosPct: 'Meta: atendidos no prazo'
   };
+  const ABAS = [['operacao', 'Operação', 'clock'], ['erp', 'Integração ERP', 'refresh'], ['separacao', 'Separação', 'scan'], ['avisos', 'Avisos e resumo', 'chat'],
+    ['aparencia', 'Aparência', 'edit'], ['seguranca', 'Segurança e dados', 'shield'], ['saude', 'Saúde', 'pulse']];
+  view.aba = 'operacao';
 
-  view.render = function (c) { el = c; desenhar(); };
+  view.render = function (c, param) { el = c; if (param && ABAS.some(x => x[0] === param)) view.aba = param; desenhar(); };
+  function irAba(a) { view.aba = a; history.replaceState(null, '', '#config/' + a); desenhar(); }
+
+  function desenhar() {
+    el.innerHTML = '<div class="tabs" role="tablist">' + ABAS.map(x => '<button type="button" role="tab" class="tab' + (view.aba === x[0] ? ' active' : '') + '" data-aba="' + x[0] + '">' + ui.icon(x[2], 'icon-sm') + ' ' + x[1] + '</button>').join('') + '</div><div id="cf-aba" class="stack"></div>';
+    el.querySelectorAll('[data-aba]').forEach(b => b.addEventListener('click', () => irAba(b.dataset.aba)));
+    const box = el.querySelector('#cf-aba');
+    const a = view.aba;
+    if (a === 'operacao') return operacao(box);
+    if (a === 'erp') return DT.erpConfig.montar(box);
+    if (a === 'separacao') return DT.separacao.montarConfig(box);
+    if (a === 'avisos') return DT.avisos.montarConfig(box);
+    if (a === 'aparencia') return DT.aparencia.montarConfig(box);
+    if (a === 'seguranca') return seguranca(box);
+    if (a === 'saude') return DT.monitor.montarSaude(box);
+  }
 
   function previa(cfg) {
     const ini = U.minutos(cfg.horaInicio), fim = U.minutos(cfg.horaFim), passo = Number(cfg.intervaloMin) || 30;
@@ -299,7 +320,7 @@ DT.views.config = (function () {
     return '<b class="mono">' + janelas + '</b> janelas por dia · <b class="mono">' + (janelas * (Number(cfg.pedidosPorJanela) || 1)) + '</b> atendimentos/dia · <b class="mono">' + (Math.round(porHora * 10) / 10) + '</b> por hora';
   }
 
-  function desenhar() {
+  function operacao(el) {
     const cfg = DT.db.settings();
     el.innerHTML =
       '<div class="page-intro"><p>A capacidade da agenda não fica fixa no código. Ajuste aqui após a avaliação dos primeiros 30 dias de operação.</p></div>' +
@@ -338,21 +359,34 @@ DT.views.config = (function () {
           '<div class="field"><label for="cf-docas">Docas do Drive Thru (uma por linha)</label><textarea id="cf-docas" class="textarea">' + esc(cfg.docas.join('\n')) + '</textarea></div>' +
         '</div></section>' +
       '</div>' +
+      '<div class="grid-2">' +
+        '<section class="card"><div class="card-head"><h3>' + ui.icon('tv') + ' Painel de TV, impressão e check-in</h3></div><div class="card-body">' +
+          '<div class="fields-2">' +
+            '<div class="field"><label for="cf-rota">Ordem dos itens na separação</label><select id="cf-rota" class="select">' +
+              ui.options([{ value: 'sim', label: 'Rota do CD (Rua → Prédio → Nível → Apto)' }, { value: 'nao', label: 'Ordem do pedido' }], cfg.rotaSeparacao === false ? 'nao' : 'sim') + '</select><span class="hint">Vale para o coletor e o romaneio.</span></div>' +
+            '<div class="field"><label for="cf-imp">Impressão padrão</label><select id="cf-imp" class="select">' +
+              ui.options([{ value: 'romaneio', label: 'Romaneio de separação (A4)' }, { value: 'etiqueta', label: 'Etiqueta do pedido (10 × 15 cm)' }], cfg.impressaoFormato || 'romaneio') + '</select><span class="hint">Os dois trazem o código de barras do pedido.</span></div>' +
+            '<div class="field"><label for="cf-qr">QR de chegada na página do cliente</label><select id="cf-qr" class="select">' +
+              ui.options([{ value: 'sim', label: 'Mostrar (check-in lendo o QR)' }, { value: 'nao', label: 'Não mostrar' }], cfg.checkinQR === false ? 'nao' : 'sim') + '</select></div>' +
+            '<div class="field"><label for="cf-pn-nome">Nome do cliente no painel de TV</label><select id="cf-pn-nome" class="select">' +
+              ui.options([{ value: 'primeiro', label: 'Primeiro nome e inicial' }, { value: 'completo', label: 'Nome completo' }, { value: 'pedido', label: 'Só o número do pedido' }], cfg.painelNome || 'primeiro') + '</select><span class="hint">A TV fica à vista de outros clientes (LGPD).</span></div>' +
+            '<div class="field"><label for="cf-pn-placa">Placa do veículo no painel</label><select id="cf-pn-placa" class="select">' +
+              ui.options([{ value: 'sim', label: 'Mostrar' }, { value: 'nao', label: 'Não mostrar' }], cfg.painelPlaca === false ? 'nao' : 'sim') + '</select></div>' +
+            '<div class="field"><label for="cf-pn-min">Chamada em destaque por (min)</label><input type="number" min="1" max="30" id="cf-pn-min" class="input" value="' + (cfg.painelChamadaMin || 5) + '"><span class="hint">Depois disso o cliente vai para "Em atendimento".</span></div>' +
+          '</div>' +
+        '</div></section>' +
+        '<section class="card"><div class="card-head"><h3>' + ui.icon('chart') + ' Metas de prazo</h3></div><div class="card-body">' +
+          '<p class="muted">Usadas no Dashboard, nos relatórios e no resumo diário.</p>' +
+          '<div class="fields-2">' +
+            '<div class="field"><label for="cf-mt-pronto">Pedidos prontos antes da chegada (%)</label><input type="number" min="0" max="100" id="cf-mt-pronto" class="input" value="' + (cfg.metaProntoAntesPct || 90) + '"></div>' +
+            '<div class="field"><label for="cf-mt-min">Tempo máximo da chegada até a doca (min)</label><input type="number" min="1" max="240" id="cf-mt-min" class="input" value="' + (cfg.metaAtendimentoMin || 15) + '"></div>' +
+            '<div class="field"><label for="cf-mt-at">Clientes atendidos dentro desse tempo (%)</label><input type="number" min="0" max="100" id="cf-mt-at" class="input" value="' + (cfg.metaAtendidosPct || 80) + '"></div>' +
+          '</div>' +
+        '</div></section>' +
+      '</div>' +
       '<div class="row end"><button type="button" class="btn ghost" id="cf-reset">Restaurar padrão do projeto</button><button type="submit" class="btn primary lg">' + ui.icon('check') + 'Salvar configurações</button></div>' +
-      '</form>' +
-      '<div id="cf-erp"></div>' +
-      '<div id="cf-separacao"></div>' +
-      '<div id="cf-aparencia"></div>' +
-      '<section class="card"><div class="card-head"><h3>Dados do sistema</h3></div><div class="card-body">' +
-        (DT.db.modoNuvem() ? '<p class="muted">Os dados ficam no banco de dados na nuvem (Supabase) e são compartilhados por todos os usuários, em tempo real.</p>' :
-          '<p class="muted">Nesta versão os dados ficam salvos neste navegador' + (DT.db.estaPersistindo() ? '' : ' (o armazenamento está bloqueado: os dados valem só para esta sessão)') + '. A integração com banco de dados e ERP substitui essa camada sem mudar as telas.</p>') +
-        '<div class="row wrap"><button type="button" class="btn ghost" id="cf-demo">' + ui.icon('refresh') + 'Recriar dados de demonstração</button>' +
-        '<button type="button" class="btn danger" id="cf-limpar">' + ui.icon('ban') + 'Começar operação real (apagar agendamentos)</button></div>' +
-      '</div></section>';
+      '</form>';
 
-    DT.erpConfig.montar(el.querySelector('#cf-erp'));
-    DT.separacao.montarConfig(el.querySelector('#cf-separacao'));
-    DT.aparencia.montarConfig(el.querySelector('#cf-aparencia'));
     const f = el.querySelector('#cf-form');
     const ler = () => ({
       horaInicio: f.querySelector('#cf-ini').value, horaFim: f.querySelector('#cf-fim').value,
@@ -364,7 +398,13 @@ DT.views.config = (function () {
       limiteItens: Number(f.querySelector('#cf-lim').value) || 0, unidade: f.querySelector('#cf-un').value.trim() || cfg.unidade,
       lgpdModo: f.querySelector('#cf-lgpd').value, lgpdEncarregado: f.querySelector('#cf-dpo').value.trim(),
       rastreioAtivo: f.querySelector('#cf-rast').value !== 'nao', raioChegadaKm: Math.min(30, Math.max(0.3, Number(f.querySelector('#cf-raio').value) || 2)),
-      docas: f.querySelector('#cf-docas').value.split('\n').map(s => s.trim()).filter(Boolean)
+      docas: f.querySelector('#cf-docas').value.split('\n').map(s => s.trim()).filter(Boolean),
+      rotaSeparacao: f.querySelector('#cf-rota').value !== 'nao', impressaoFormato: f.querySelector('#cf-imp').value,
+      checkinQR: f.querySelector('#cf-qr').value !== 'nao', painelNome: f.querySelector('#cf-pn-nome').value,
+      painelPlaca: f.querySelector('#cf-pn-placa').value !== 'nao', painelChamadaMin: Math.min(30, Math.max(1, Number(f.querySelector('#cf-pn-min').value) || 5)),
+      metaProntoAntesPct: Math.min(100, Math.max(0, Number(f.querySelector('#cf-mt-pronto').value) || 0)),
+      metaAtendimentoMin: Math.min(240, Math.max(1, Number(f.querySelector('#cf-mt-min').value) || 15)),
+      metaAtendidosPct: Math.min(100, Math.max(0, Number(f.querySelector('#cf-mt-at').value) || 0))
     });
     el.querySelector('#cf-lgpd-ver').addEventListener('click', () => DT.lgpd.visualizar());
     f.addEventListener('input', () => { try { el.querySelector('#cf-previa').innerHTML = previa(ler()); } catch (e) { /* campos incompletos */ } });
@@ -395,6 +435,19 @@ DT.views.config = (function () {
       DT.audit.registrar('Restaurou parâmetros padrão', 'Configuração', 'Todos', null, null);
       ui.toast('Parâmetros restaurados.'); desenhar();
     });
+  }
+
+  function seguranca(el) {
+    el.innerHTML = '<div id="cf-check"></div><div id="cf-ret"></div>' +
+      '<section class="card"><div class="card-head"><h3>Dados do sistema</h3></div><div class="card-body">' +
+        (DT.db.modoNuvem() ? '<p class="muted">Os dados ficam no banco de dados na nuvem (Supabase) e são compartilhados por todos os usuários, em tempo real.</p>' :
+          '<p class="muted">Nesta versão os dados ficam salvos neste navegador' + (DT.db.estaPersistindo() ? '' : ' (o armazenamento está bloqueado: os dados valem só para esta sessão)') + '. A integração com banco de dados e ERP substitui essa camada sem mudar as telas.</p>') +
+        '<div class="row wrap"><button type="button" class="btn ghost" id="cf-demo">' + ui.icon('refresh') + 'Recriar dados de demonstração</button>' +
+        '<button type="button" class="btn danger" id="cf-limpar">' + ui.icon('ban') + 'Começar operação real (apagar agendamentos)</button></div>' +
+      '</div></section>';
+    const check = () => DT.seguranca.montarChecklist(el.querySelector('#cf-check'), irAba, limparOperacao);
+    check();
+    DT.seguranca.montarRetencao(el.querySelector('#cf-ret'), check);
     el.querySelector('#cf-demo').addEventListener('click', async () => {
       const r = await ui.confirmar({ titulo: 'Recriar dados de demonstração', perigo: true, ok: 'Recriar', mensagem: DT.db.modoNuvem() ? 'Agendamentos, funcionários, configurações e auditoria do servidor serão substituídos por dados de demonstração novos, para todos os usuários. Os usuários e senhas são mantidos.' : 'Todos os dados deste navegador (agendamentos, usuários, configurações e auditoria) serão substituídos por dados de demonstração novos. Você precisará entrar novamente.' });
       if (!r.ok) return;
@@ -409,16 +462,19 @@ DT.views.config = (function () {
       history.replaceState(null, '', location.pathname + location.search);
       DT.app.render();
     });
-    el.querySelector('#cf-limpar').addEventListener('click', async () => {
+    el.querySelector('#cf-limpar').addEventListener('click', () => limparOperacao());
+  }
+  async function limparOperacao() {
       const r = await ui.confirmar({ titulo: 'Começar operação real', perigo: true, ok: 'Apagar agendamentos', pedirMotivo: true, labelMotivo: 'Digite APAGAR para confirmar',
         mensagem: 'Remove todos os agendamentos e a auditoria de demonstração. Usuários, funcionários e configurações são mantidos.' });
       if (!r.ok) return;
       if (r.motivo.toUpperCase() !== 'APAGAR') { ui.toast('Confirmação incorreta. Nada foi apagado.', 'warn'); return; }
       DT.seed.limparOperacao();
+      DT.db.set('meta', Object.assign({}, DT.db.meta(), { operacaoReal: new Date().toISOString() }));
       DT.audit.registrar('Iniciou operação real (dados de demonstração removidos)', 'Sistema', '', null, null);
       ui.toast('Agendamentos removidos. Sistema pronto para a operação.');
       DT.app.montarMenu();
-    });
+      desenhar();
   }
 
   return view;

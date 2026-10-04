@@ -865,3 +865,69 @@ label.btn:has(+ input:focus-visible) { outline: 2px solid var(--signal); outline
 :root[data-theme="dark"] .col-fb.err { background: #3a1616; border-color: #7a2c2c; color: #F4B1B1; }
 :root[data-theme="dark"] .col-fb.warn { background: #382a10; border-color: #7a5a1c; color: #F3CF8A; }
 :root[data-theme="dark"] .col-item.ok { background: #13281c; }
+
+/* ---------- 0.9.0 · Painel de TV ---------- */
+.pn { background: #1f262c; color: #fff; border-radius: 14px; padding: 22px 26px; min-height: 76vh; display: flex; flex-direction: column; gap: 18px; }
+.pn-topo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pn-logo { height: 40px; }
+.pn-tit { display: block; font-size: 22px; letter-spacing: .02em; }
+.pn-sub { display: block; font-size: 13px; color: #b9c2ca; }
+.pn-hora { font-size: 40px; font-weight: 700; }
+.pn-ctl .btn { color: #fff; border-color: rgba(255,255,255,.3); background: transparent; }
+.pn-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; flex: 1; }
+.pn h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .14em; color: #ffb3b5; margin: 0 0 10px; }
+.pn h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #b9c2ca; margin: 14px 0 8px; display: flex; align-items: center; gap: 8px; }
+.pn-cnt { background: rgba(255,255,255,.12); border-radius: 99px; padding: 1px 9px; font-size: 12px; color: #fff; }
+.pn-call { background: #AB0F14; border-radius: 12px; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
+.pn-call + .pn-call { background: #5a1215; }
+.pn-novo { animation: pnPisca 1.2s ease-in-out 4; }
+@keyframes pnPisca { 50% { box-shadow: 0 0 0 8px rgba(255,255,255,.35); } }
+.pn-call-n { font-size: clamp(26px, 3.4vw, 54px); font-weight: 800; line-height: 1.1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pn-call-d { text-align: right; }
+.pn-call-d span { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; opacity: .85; }
+.pn-call-d b { font-size: clamp(28px, 3.6vw, 58px); }
+.pn-placa { font-family: "Courier New", monospace; background: #fff; color: #1f262c; border: 3px solid #1f262c; outline: 2px solid #fff; border-radius: 6px; padding: 2px 10px; font-size: .55em; letter-spacing: .08em; font-weight: 700; }
+.pn-lista { display: flex; flex-direction: column; gap: 6px; }
+.pn-li { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(255,255,255,.07); border-radius: 8px; padding: 10px 14px; font-size: 19px; }
+.pn-li span { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pn-li .pn-placa { font-size: 14px; }
+.pn-li small { color: #b9c2ca; font-size: 13px; }
+.pn-ok { font-style: normal; background: #1d7a46; border-radius: 99px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
+.pn-vazio { font-size: 22px; color: #b9c2ca; padding: 28px 0; }
+.pn-vazio.sm { font-size: 15px; padding: 8px 0; }
+.pn-rodape { margin-top: auto; padding-top: 14px; color: #b9c2ca; font-size: 14px; }
+body.modo-painel .sidebar, body.modo-painel .topbar { display: none !important; }
+body.modo-painel .content { padding: 0; max-width: none; }
+body.modo-painel .pn { border-radius: 0; min-height: 100vh; }
+body.modo-painel .shell { display: block; }
+@media (max-width: 900px) { .pn-grid { grid-template-columns: 1fr; } .pn-call { flex-direction: column; align-items: flex-start; } .pn-call-d { text-align: left; } }
+@media print { .naoimprime { display: none; } }
+
+/* ---------- 0.9.0 · Checklist de produção e saúde ---------- */
+.ck-lista { display: flex; flex-direction: column; gap: 6px; }
+.ck-item { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.ck-item b { display: block; font-size: 14px; }
+.ck-item .subtle { display: block; }
+.ck-item .ck-ic { color: var(--warn, #b26b00); display: flex; justify-content: center; }
+.ck-item.ok { background: var(--ok-soft, #eaf6ef); border-color: transparent; }
+.ck-item.ok .ck-ic { color: var(--ok, #1d7a46); }
+.ck-item input { width: 18px; height: 18px; accent-color: var(--ok, #1d7a46); }
+label.ck-item { cursor: pointer; }
+.saude-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.saude-grid > div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.saude-grid span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+.saude-grid b { font-size: 15px; }
+.saude-erro { font-size: 12.5px; border-bottom: 1px solid var(--line); padding: 6px 0; }
+.saude-erro code { font-size: 11.5px; color: var(--ink-3); word-break: break-word; }
+.banner-erp { margin: 0 0 12px; }
+.banner-wrap:not(:empty) { padding: 14px 24px 0; max-width: 1480px; }
+body.modo-painel .banner-wrap { display: none; }
+.metas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.meta-kpi { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.meta-kpi span { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+.meta-kpi b { font-size: 28px; font-family: var(--mono, monospace); }
+.meta-kpi small { color: var(--ink-3); }
+.meta-kpi.ok b { color: var(--ok); } .meta-kpi.crit b { color: var(--crit); }
+.meta-kpi .bar-track { position: relative; margin-top: 4px; }
+.meta-kpi .bar-track i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: .6; }
+@media (max-width: 760px) { .metas { grid-template-columns: minmax(0, 1fr); } }

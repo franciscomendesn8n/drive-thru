@@ -14,7 +14,7 @@ window.DT = window.DT || {};
 DT.nuvem = (function () {
   const cfg = DT.SUPABASE || {};
   const TAB = { agendamentos: 'dt_agendamentos', auditoria: 'dt_auditoria', funcionarios: 'dt_funcionarios', config: 'dt_config', usuarios: 'dt_usuarios' };
-  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia', 'erp', 'separacao'];
+  const CONFIG_CHAVES = ['settings', 'perfis', 'meta', 'aparencia', 'erp', 'separacao', 'avisos', 'producao', 'retencao_execucao', 'resumo_ultimo', 'avisos_ciclo'];
   let sb = null, sessao = null, canal = null;
   let status = 'desconectado';           // desconectado | sincronizado | salvando | erro
   let avisouErro = false;
@@ -70,7 +70,45 @@ DT.nuvem = (function () {
   function enfileirar(tabela, tipo, dado) {
     const chave = tabela + ':' + (tipo === 'delete' ? dado : (dado.id || dado.chave));
     fila.set(chave, { tabela: tabela, tipo: tipo, dado: dado });
+    persistirFila();
     agendarEnvio(30);
+  }
+  /* A fila de envios também fica guardada no aparelho: se o coletor reiniciar ou a
+     página for fechada sem internet, as alterações são enviadas no próximo acesso. */
+  const chaveFila = () => 'dt_fila_pendente_' + (userId() || '');
+  function persistirFila() {
+    if (!userId()) return;
+    try {
+      const itens = Array.from(fila.entries()).filter(([, op]) => op.tipo === 'upsert' && (op.tabela === TAB.agendamentos || op.tabela === TAB.auditoria));
+      if (itens.length) localStorage.setItem(chaveFila(), JSON.stringify({ ts: new Date().toISOString(), itens: itens }));
+      else localStorage.removeItem(chaveFila());
+    } catch (e) { /* armazenamento indisponível */ }
+  }
+  function restaurarFila() {
+    let salvo = null;
+    try { salvo = JSON.parse(localStorage.getItem(chaveFila()) || 'null'); } catch (e) { salvo = null; }
+    if (!salvo || !Array.isArray(salvo.itens) || !salvo.itens.length) return 0;
+    const mem = DT.db.memoria;
+    const ags = mem.ler('agendamentos') || [], auds = mem.ler('auditoria') || [];
+    let n = 0;
+    salvo.itens.forEach(([k, op]) => {
+      if (fila.has(k) || !op || !op.dado) return;
+      if (op.tabela === TAB.agendamentos) {
+        const doc = op.dado.doc, i = ags.findIndex(a => a.id === doc.id);
+        // só reenvia se a alteração guardada for mais nova que a do servidor
+        if (i >= 0 && String(ags[i].alteradoEm || '') >= String(doc.alteradoEm || '')) return;
+        if (i >= 0) ags[i] = doc; else ags.push(doc);
+        ids.agendamentos.add(doc.id);
+      } else if (op.tabela === TAB.auditoria) {
+        if (ids.auditoria.has(op.dado.id)) return;
+        auds.push(op.dado.doc); ids.auditoria.add(op.dado.id);
+      }
+      fila.set(k, op); n++;
+    });
+    mem.gravar('agendamentos', ags); mem.gravar('auditoria', auds);
+    try { localStorage.removeItem(chaveFila()); } catch (e) { /* ignora */ }
+    if (n) { persistirFila(); agendarEnvio(300); }
+    return n;
   }
   function agendarEnvio(ms) {
     clearTimeout(timerFila);
@@ -83,7 +121,7 @@ DT.nuvem = (function () {
     lote.forEach(([k]) => fila.delete(k));
     const grupos = {};
     lote.forEach(([k, op]) => {
-      const g = op.tabela + '|' + op.tipo;
+      const g = op.tabela + '|' + op.tipo + (op.solo ? '|' + k : '');
       (grupos[g] = grupos[g] || []).push([k, op]);
     });
     let falhou = false;
@@ -103,17 +141,24 @@ DT.nuvem = (function () {
           }
         } catch (e) { resp = { error: e }; }
         if (resp && resp.error) {
-          falhou = true;
+          const recusado = resp.error.code === '42501' || /row-level security/i.test(resp.error.message || '');
+          if (!recusado) falhou = true;
           // devolve à fila sem sobrescrever alterações mais novas
           parte.forEach(([k, op]) => { if (!fila.has(k)) fila.set(k, op); });
           console.warn('[nuvem] falha ao gravar em', tabela, resp.error);
-          if (resp.error.code === '42501' || /row-level security/i.test(resp.error.message || '')) {
+          if (recusado) {
+            if (parte.length > 1) {
+              // um item recusado não pode derrubar o lote: reenvia um a um
+              parte.forEach(([k, op]) => fila.set(k, Object.assign({}, op, { solo: true })));
+              continue;
+            }
             parte.forEach(([k]) => fila.delete(k));
-            DT.ui && DT.ui.toast('Sem permissão para gravar essa alteração no servidor.', 'err');
+            DT.ui && DT.ui.toast(/perfil não pode/i.test(resp.error.message || '') ? resp.error.message : 'Sem permissão para gravar essa alteração no servidor.', 'err', 8000);
           }
         }
       }
     }
+    persistirFila();
     if (falhou && fila.size) {
       setStatus('erro');
       if (!avisouErro && DT.ui) { avisouErro = true; DT.ui.toast('Sem conexão com o servidor. As alterações serão enviadas assim que a conexão voltar.', 'warn'); }
@@ -303,6 +348,8 @@ DT.nuvem = (function () {
       return { ok: false, erro: 'Usuário sem acesso ao sistema ou inativo. Procure o administrador.' };
     }
     assinar();
+    const reenviados = restaurarFila();
+    if (reenviados && DT.ui) setTimeout(() => DT.ui.toast(reenviados + ' alteração(ões) feitas sem internet foram enviadas ao servidor.', 'ok', 8000), 1500);
     return { ok: true };
   }
   async function login(loginTxt, senha) {
@@ -357,7 +404,7 @@ DT.nuvem = (function () {
     try { await sb.auth.signOut(); } catch (e) { try { await sb.auth.signOut({ scope: 'local' }); } catch (e2) { /* ignora */ } }
     saindo = false;
     sessao = null;
-    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio', 'erp', 'separacao'].forEach(k => DT.db.memoria.gravar(k, null));
+    ['users', 'funcionarios', 'agendamentos', 'auditoria', 'settings', 'perfis', 'meta', 'rastreio', 'erp', 'separacao', 'avisos', 'producao', 'retencao_execucao', 'resumo_ultimo', 'avisos_ciclo'].forEach(k => DT.db.memoria.gravar(k, null));
   }
 
   /* ---------------------------- funções de servidor ---------------------------- */
@@ -389,7 +436,49 @@ DT.nuvem = (function () {
     if (data && data.erro && acao !== 'testar') throw new Error(data.erro);
     return data || {};
   }
-  async function erpConsultar(numero) { return erpAcao('consultar', { numero: numero }); }
+  async function erpConsultar(numero) {
+    try { return await erpAcao('consultar', { numero: numero }); }
+    catch (e) {
+      if (DT.monitor) DT.monitor.registrar('ERP', 'Falha na consulta ao ERP: ' + (e && e.message), 'pedido ' + numero);
+      throw e;
+    }
+  }
+  /* Avisos ao cliente e resumo diário (função dt-avisos) */
+  async function avisosAcao(acao, payload) {
+    if (!sessao) throw new Error('Entre no sistema.');
+    const { data, error } = await sb.functions.invoke('dt-avisos', { body: Object.assign({ acao: acao }, payload || {}) });
+    if (error) {
+      let msg = null;
+      const status = error.context && error.context.status;
+      try { const j = await error.context.json(); msg = j && j.erro; } catch (e) { /* sem corpo */ }
+      if (!msg && status === 404) msg = 'A função de avisos (dt-avisos) não está publicada no servidor.';
+      throw new Error(msg || 'Falha ao falar com o servidor.');
+    }
+    if (data && data.erro) throw new Error(data.erro);
+    return data || {};
+  }
+  async function avisosEnviados(agIds) {
+    if (!sessao) return [];
+    let q = sb.from('dt_avisos_enviados').select('*').order('ts', { ascending: false }).limit(500);
+    if (agIds && agIds.length) q = q.in('agendamento_id', agIds);
+    const { data, error } = await q;
+    return error ? [] : (data || []);
+  }
+  /* Monitoramento: erros das telas e retenção (LGPD) */
+  async function registrarErro(reg) {
+    if (!sessao) return;
+    try { await sb.from('dt_erros').insert(reg); } catch (e) { /* sem conexão */ }
+  }
+  async function listarErros(limite) {
+    const { data, error } = await sb.from('dt_erros').select('*').order('ts', { ascending: false }).limit(limite || 30);
+    if (error) throw error;
+    return data || [];
+  }
+  async function aplicarRetencao() {
+    const { data, error } = await sb.rpc('dt_aplicar_retencao');
+    if (error) throw new Error(error.message);
+    return data || {};
+  }
   async function acompanhar(codigo) {
     cliente();
     const { data, error } = await sb.rpc('dt_acompanhar', { p_codigo: codigo });
@@ -432,5 +521,5 @@ DT.nuvem = (function () {
 
   return { ativa, iniciar, temSessao, userId, prepararSessao, login, logout, carregar, recarregarUsuarios,
     sincronizar, salvarAgendamento, inserirAuditoria, pendentes, enviar, aoMudar, statusAtual, setStatus, tempoReal,
-    gerenciarUsuario, erpAcao, erpConsultar, acompanhar, acompanharPorPedido, aparenciaPublica, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
+    gerenciarUsuario, erpAcao, erpConsultar, avisosAcao, avisosEnviados, registrarErro, listarErros, aplicarRetencao, acompanhar, acompanharPorPedido, aparenciaPublica, enviarLocalizacao, pararLocalizacao, carregarRastreio, trocarMinhaSenha, aoEncerrarSessao, conferirSessao };
 })();

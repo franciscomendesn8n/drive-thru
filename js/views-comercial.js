@@ -119,6 +119,9 @@ DT.acoes = (function () {
     const t = DT.kpi.tempos(ag);
     const acoes = [{ label: 'Linha do tempo', cls: 'ghost', icon: 'timeline', onClick: () => { DT.app.ir('pedido', ag.pedido.numero); } },
       { label: 'Página do cliente', cls: 'ghost', icon: 'user', onClick: () => { setTimeout(() => paginaCliente(ag), 0); } }];
+    if (DT.auth.pode('preparacao.alterar') || DT.auth.pode('coletor.operar')) {
+      acoes.push({ label: 'Imprimir', cls: 'ghost', icon: 'print', onClick: () => { setTimeout(() => DT.impressao.escolher(ag), 0); } });
+    }
     const preChegada = G.ativosPreChegada.indexOf(ag.status) >= 0;
     if (DT.auth.pode('agendamento.alterar') && preChegada) {
       acoes.push({ label: 'Cancelar', cls: 'danger', icon: 'ban', onClick: () => { setTimeout(() => cancelar(ag, aoAlterar), 0); } });
@@ -142,7 +145,15 @@ DT.acoes = (function () {
         '<div><span>Atendimento</span><b>' + U.fmtDuracao(t.atendimento) + '</b></div></div>' +
         ui.pedidoKV(ag.pedido, ag) +
         (ag.observacao ? ui.notice('info', '<b>Observação:</b> ' + esc(ag.observacao)) : '') +
-        (ag.cancelamento ? ui.notice('crit', '<b>Cancelado</b> por ' + esc(ag.cancelamento.usuario) + ' em ' + U.fmtDataHora(ag.cancelamento.ts) + ' — ' + esc(ag.cancelamento.motivo)) : ''),
+        (ag.cancelamento ? ui.notice('crit', '<b>Cancelado</b> por ' + esc(ag.cancelamento.usuario) + ' em ' + U.fmtDataHora(ag.cancelamento.ts) + ' — ' + esc(ag.cancelamento.motivo)) : '') +
+        (preChegada && DT.avisos.config().modo !== 'desligado' ? '<div class="row between wrap" style="margin-top:10px"><span class="eyebrow">Avisar o cliente</span>' + DT.avisos.botoes(ag) + '</div><div class="subtle" id="det-avisos"></div>' : ''),
+      onOpen: r => {
+        DT.avisos.ligarBotoes(r, ag);
+        if (DT.db.modoNuvem() && preChegada) DT.nuvem.avisosEnviados([ag.id]).then(l => {
+          const b = r.querySelector('#det-avisos');
+          if (b && l.length) b.innerHTML = 'Avisos automáticos: ' + l.map(x => esc(DT.avisos.TIPOS[x.tipo] || x.tipo) + ' ' + (x.ok ? 'enviado ' + U.fmtDataHora(x.ts) : '<span class="crit-txt">falhou (' + esc(x.detalhe || '') + ')</span>')).join(' · ');
+        }).catch(() => {});
+      },
       actions: acoes
     });
   }
@@ -328,6 +339,7 @@ DT.views.agendar = (function () {
         '</div>' +
         '<div class="ticket-cut"></div>' +
         DT.acoes.blocoCliente(ag) +
+        (DT.avisos.config().modo === 'link' ? '<div class="card-body" style="padding-top:0">' + DT.avisos.botoes(ag) + '</div>' : '') +
         '<div class="card-foot" style="justify-content:space-between">' +
           '<button type="button" class="btn ghost" id="btn-copiar">' + ui.icon('copy') + 'Copiar para enviar ao cliente</button>' +
           '<div class="row"><button type="button" class="btn ghost" id="btn-agenda">' + ui.icon('calendar') + 'Ver agenda</button>' +
@@ -335,6 +347,7 @@ DT.views.agendar = (function () {
         '</div>' +
       '</div>';
     DT.acoes.ligarBlocoCliente(el, ag);
+    DT.avisos.ligarBotoes(el, ag);
     el.querySelector('#btn-novo').addEventListener('click', () => { estado = {}; desenhar(); });
     el.querySelector('#btn-agenda').addEventListener('click', () => { DT.views.agenda.dataSel = ag.data; DT.app.ir('agenda'); });
     el.querySelector('#btn-copiar').addEventListener('click', async () => {

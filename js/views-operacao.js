@@ -129,6 +129,7 @@ DT.views.preparacao = (function () {
           '<td>' + DT.opUI.stepsHTML(a) + progressoColeta(a) + '</td>' +
           '<td><div class="row" style="gap:4px">' + (ui.alertChips(a) || '<span class="subtle">No prazo</span>') + '</div></td>' +
           '<td class="r"><div class="row end" style="flex-wrap:nowrap">' +
+            '<button type="button" class="btn ghost sm" data-imprimir="' + a.id + '" title="Imprimir romaneio ou etiqueta">' + ui.icon('print', 'icon-sm') + '</button>' +
             (DT.ag.etapaAnterior(a) ? '<button type="button" class="btn ghost sm" data-voltar="' + a.id + '" title="Corrigir: voltar uma etapa">' + ui.icon('back', 'icon-sm') + '</button>' : '') +
             (prox ? (DT.separacao.quemRegistra(prox) ? '<span class="subtle" title="A etapa ' + esc(prox) + ' é registrada ' + esc(DT.separacao.quemRegistra(prox)) + '">' + ui.icon(DT.separacao.quemRegistra(prox) === 'pelo ERP' ? 'refresh' : 'scan', 'icon-sm') + ' Aguarda ' + (DT.separacao.quemRegistra(prox) === 'pelo ERP' ? 'ERP' : 'coletor') + '</span>'
               : '<button type="button" class="btn ' + (prox === S.PRONTO ? 'success' : 'primary') + ' sm" data-avancar="' + a.id + '">' + esc(ACAO[prep] || 'Avançar') + '</button>') : '<span class="subtle">Pronto</span>') +
@@ -140,6 +141,7 @@ DT.views.preparacao = (function () {
     el.querySelector('#pp-prontos').addEventListener('change', e => { view.mostrarProntos = e.target.checked; desenhar(); });
     el.querySelectorAll('[data-avancar]').forEach(b => b.addEventListener('click', () => avancar(b.dataset.avancar)));
     el.querySelectorAll('[data-voltar]').forEach(b => b.addEventListener('click', () => voltar(b.dataset.voltar)));
+    el.querySelectorAll('[data-imprimir]').forEach(b => b.addEventListener('click', () => { const ag = DT.db.agendamentoPorId(b.dataset.imprimir); if (ag) DT.impressao.escolher(ag); }));
     const sb = el.querySelector('#pp-sync');
     if (sb) sb.addEventListener('click', async () => {
       sb.disabled = true; sb.innerHTML = '<span class="spinner"></span>Lendo o ERP…';
@@ -214,6 +216,17 @@ DT.views.checkin = (function () {
   view.render = function (c, param) { el = c; if (param || !DT.app.estaVoltando()) view.sel = param || null; DT.opUI.dataAoAbrir(view, param); desenhar(); };
   view.refresh = function () { desenhar(); };
 
+  /* QR de chegada: abre direto o agendamento do cliente */
+  function chegadaPorQR(cod) {
+    const ag = DT.db.agendamentos().find(a => DT.ag.codigo(a) === cod);
+    view.busca = '';
+    if (!ag) { ui.toast('QR Code não corresponde a nenhum agendamento.', 'err'); desenhar(); return; }
+    if (G.ativosPreChegada.indexOf(ag.status) < 0) { ui.toast('Pedido ' + ag.pedido.numero + ': ' + ag.status + '. Não há chegada a registrar.', 'warn', 6000); desenhar(); return; }
+    if (ag.data !== U.dataISO()) { ui.toast('Pedido ' + ag.pedido.numero + ' está agendado para ' + U.fmtData(ag.data) + ' às ' + ag.hora + '.', 'warn', 8000); }
+    view.data = ag.data; view.sel = ag.id;
+    ui.toast('QR lido: pedido ' + ag.pedido.numero + ' · ' + ag.pedido.cliente + '.');
+    desenhar();
+  }
   function fila() {
     const d = DT.opUI.dataDe(view);
     const b = view.busca.toLowerCase();
@@ -237,7 +250,9 @@ DT.views.checkin = (function () {
       '<div class="grid-side-main">' +
         '<div class="stack">' +
           '<section class="card"><div class="card-head"><h3>' + titulo + '</h3><span class="spacer"></span><span class="subtle">' + lista.length + '</span></div>' +
-            '<div class="card-body" style="padding-bottom:0"><div class="field"><label for="ck-busca">Localizar agendamento</label><input id="ck-busca" class="input" placeholder="Pedido, nota fiscal ou cliente" value="' + esc(view.busca) + '"></div></div>' +
+            '<div class="card-body" style="padding-bottom:0"><div class="field"><label for="ck-busca">Localizar agendamento</label><div class="row" style="flex-wrap:nowrap;gap:8px"><input id="ck-busca" class="input" placeholder="Pedido, nota fiscal, cliente ou QR de chegada" value="' + esc(view.busca) + '" style="flex:1">' +
+              (DT.leitorQR && DT.leitorQR.disponivel() ? '<button type="button" class="btn ghost" id="ck-qr" title="Ler o QR de chegada com a câmera">' + ui.icon('camera') + 'Ler QR</button>' : '') + '</div>' +
+              '<span class="hint">Com o leitor do coletor, bipe o QR da página do cliente direto neste campo.</span></div></div>' +
             '<div class="queue" style="margin-top:12px">' + (lista.length ? lista.map(a => DT.opUI.queueItem(a, ag && a.id === ag.id)).join('') : ui.empty(d < hoje ? 'Todos os clientes deste dia foram registrados.' : 'Nenhum cliente aguardado nesta data.', 'car')) + '</div>' +
           '</section>' +
           '<section class="card"><div class="card-head"><h3>Chegadas registradas</h3><span class="spacer"></span><span class="subtle">' + chegadas.length + '</span></div><div class="queue">' +
@@ -254,8 +269,13 @@ DT.views.checkin = (function () {
       const b = el.querySelector('#ck-busca'); b.focus(); b.setSelectionRange(b.value.length, b.value.length);
     });
     busca.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { const l = fila(); if (l.length === 1) { view.sel = l[0].id; desenhar(); } }
+      if (e.key !== 'Enter') return;
+      const cod = DT.leitorQR ? DT.leitorQR.codigoDe(busca.value) : null;
+      if (cod) { e.preventDefault(); chegadaPorQR(cod); return; }
+      const l = fila(); if (l.length === 1) { view.sel = l[0].id; desenhar(); }
     });
+    const bqr = el.querySelector('#ck-qr');
+    if (bqr) bqr.addEventListener('click', () => DT.leitorQR.abrir(chegadaPorQR));
     DT.opUI.bindQueue(el, id => { view.sel = id; desenhar(); });
     if (ag) bindPainel(ag);
   }

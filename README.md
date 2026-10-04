@@ -15,16 +15,13 @@ python -m http.server 8080
 # depois acesse http://localhost:8080
 ```
 
-## Usuários de teste
+## Usuários de teste (somente no modo demonstração, neste navegador)
 
-| Perfil        | Usuário          | Senha    |
-|---------------|------------------|----------|
-| Administrador | `admin`          | `admin123` |
-| Comercial     | `joao.silva`     | `123456` |
-| Comercial     | `fernanda.rocha` | `123456` |
-| Logística     | `ana.santos`     | `123456` |
-| Logística     | `carlos.lima`    | `123456` |
-| Gestor        | `gestor`         | `123456` |
+Perfis de demonstração: Administrador (`admin`), Comercial (`joao.silva`, `fernanda.rocha`,
+`inacio.sardinha`), Logística (`ana.santos`, `carlos.lima`), Operador de coletor (`marcos.pereira`)
+e Gestor (`gestor`). As senhas de demonstração não são publicadas aqui; peça ao administrador do
+projeto. No servidor real, esses usuários devem ser desativados em
+**Configurações › Segurança e dados › Checklist para operação real**.
 
 ## Pedidos de teste (ERP simulado)
 
@@ -159,6 +156,41 @@ Fica gravada em `dt_config` (chave `aparencia`) e é lida sem login pela funçã
 `dt_aparencia()`, porque a tela de login e a página do cliente aparecem antes de qualquer acesso;
 uma cópia fica no navegador para a tela já abrir com o visual certo. Código: `js/aparencia.js`.
 
+## Novidades da versão 0.9.0
+
+A versão anterior (0.8.2) continua guardada: no ramo `versao-0.8.2` do GitHub e publicada em
+`/v0.8.2/` (mesmo banco de dados).
+
+**Configurações em abas** — Operação, Integração ERP, Separação, Avisos e resumo, Aparência,
+Segurança e dados e Saúde. Quase tudo abaixo é ligado ou ajustado por lá.
+
+| Recurso | Onde fica | Configuração |
+|---|---|---|
+| Regras por perfil no servidor (quem pode mudar cada status) | gatilho `dt_agendamento_regras` | — |
+| Limite de tentativas na consulta do cliente sem o link (5 por pedido / 20 por IP em 15 min) | função `dt_acompanhar_pedido` | — |
+| Retenção de dados (LGPD): apaga finalizados e auditoria antigos, 1×/dia | Segurança e dados | prazos em meses |
+| Checklist para operação real (usuários e dados de demonstração, ERP, DPO, contas, plano) | Segurança e dados | — |
+| Itens na ordem da rota do CD (Rua → Prédio → Nível → Apto) | Modo coletor e romaneio | liga/desliga |
+| Romaneio A4 e etiqueta 10×15 com código de barras do pedido (Code 128) | Preparação, agenda e coletor | formato padrão |
+| Fila de gravação persistente (bipes e alterações sem internet são reenviados) | automático | — |
+| Check-in pelo QR do cliente (câmera ou leitor) | Check-in › Ler QR | QR na página do cliente |
+| Painel de TV (chamada para a doca, aguardando, próximos horários) | Operação › Painel de TV | nome, placa, tempo de chamada |
+| Avisos pelo WhatsApp: confirmação, pronto e lembrete | Avisos e resumo | desligado / link / webhook |
+| Resumo diário por e-mail (via webhook) | Avisos e resumo | horário e destinatários |
+| Relatórios: Separação e conferência, Divergências por produto, Metas de prazo | Relatórios | — |
+| Metas de prazo no Dashboard | Dashboard | metas em Operação |
+| Registro de erros das telas e falhas do ERP + aviso ao administrador | Saúde | — |
+| Testes automáticos no GitHub | `tests/` e `.github/workflows/testes.yml` | — |
+
+**Instalação no servidor:** rodar `supabase/migracoes/0.9.0.sql` uma vez no SQL Editor do Supabase e
+publicar a função `dt-avisos` (`supabase/functions/dt-avisos`, com verificação de JWT).
+
+**Webhook de avisos:** o servidor faz `POST` em JSON para o endereço configurado, com o cabeçalho
+`X-DriveThru-Token` (guardado no cofre). Corpo dos avisos:
+`{ evento: "confirmacao" | "pronto" | "lembrete" | "teste", mensagem, telefone, cliente, pedido, data, hora, link, unidade, enviadoEm }`.
+Resumo diário: `{ evento: "resumo_diario", destinatarios: [...], assunto, texto, html, indicadores, dia }`.
+No n8n, um fluxo "Webhook → WhatsApp (ou e-mail)" basta para fazer o envio.
+
 ## Regras implementadas
 
 - Antecedência mínima de 1 hora (configurável).
@@ -194,10 +226,18 @@ js/services.js           regras de negócio, alertas e indicadores
 js/seed.js               usuários iniciais e dados de demonstração
 js/ui.js                 ícones, modais, toasts, componentes
 js/views-*.js            telas por área (comercial, operação, gestão, admin)
+js/painel.js             painel de TV (#painel)
+js/impressao.js          romaneio de separação e etiqueta com código de barras
+js/leitor-qr.js          leitura do QR de chegada pela câmera
+js/avisos.js             avisos pelo WhatsApp e resumo diário (configuração e envio)
+js/seguranca.js          retenção (LGPD), checklist de produção, atualização de perfis
+js/monitor.js            registro de erros e saúde do sistema
+tests/teste_fumaca.py    teste automático (roda no GitHub a cada envio)
 js/app.js                login, layout, rotas, atualização automática
 img/responsavel.jpg      foto do responsável pelo projeto (barra superior)
 supabase/schema.sql      estrutura completa do banco (tabelas, regras de acesso, funções, gatilho)
-supabase/functions/      função de servidor dt-usuarios (criação de usuários e senhas)
+supabase/functions/      funções de servidor: dt-usuarios, dt-erp, dt-erp-demo e dt-avisos
+supabase/migracoes/      atualizações do banco por versão (rodar no SQL Editor)
 supabase/README.md       como instalar o banco em um projeto Supabase novo
 ```
 
@@ -205,12 +245,10 @@ supabase/README.md       como instalar o banco em um projeto Supabase novo
 
 1. **Contas da empresa**: publicar o site em domínio próprio e recriar o banco em uma conta Supabase
    corporativa seguindo `supabase/README.md`; depois, atualizar `DT.SUPABASE` em `js/config.js`.
-2. **ERP**: em `js/config.js` mudar `DT.ERP_CONFIG.modo` para `'api'`, informar `baseUrl` e ajustar
-   `DT.ERP.mapear()` em `js/erp.js` ao formato de retorno do ERP.
-3. **Regras por perfil no servidor**: hoje o banco garante leitura, configurações, funcionários e
-   exclusões; as demais regras por perfil (ex.: vendedor não registra entrega) são aplicadas nas telas.
-4. **Segurança**: trocar as senhas de teste, desativar os usuários de demonstração, limitar tentativas
-   na consulta do cliente sem link e validar o termo LGPD com o jurídico.
+2. **ERP**: ligar pelo assistente em Configurações › Integração ERP (endereço HTTPS, credencial e de-para).
+3. **Regras por perfil no servidor**: feito na 0.9.0 (gatilho `dt_agendamento_regras`).
+4. **Segurança**: seguir o checklist em Configurações › Segurança e dados (senhas, usuários de
+   demonstração, termo LGPD validado pelo jurídico, plano pago do Supabase).
 5. **Login corporativo (opcional)**: integrar com o AD/SSO da empresa pelo Supabase Auth.
-6. Visão futura: aviso ao cliente por WhatsApp/SMS, painel de TV na doca, aplicativo instalado para
+6. Visão futura: aplicativo instalado para
    rastreamento com o celular bloqueado e previsão de chegada com trânsito.

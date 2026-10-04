@@ -245,6 +245,7 @@ DT.ag = (function () {
     evento(ag, S.AGENDADO, 'Pedido agendado para ' + U.fmtData(ag.data) + ' às ' + ag.hora);
     DT.db.salvarAgendamento(ag);
     DT.audit.registrar('Criou agendamento', 'Agendamento', pedido.numero, null, U.fmtData(ag.data) + ' ' + ag.hora);
+    if (DT.avisos) DT.avisos.evento(ag, 'confirmacao');
     return { ok: true, ag: ag };
   }
 
@@ -335,6 +336,7 @@ DT.ag = (function () {
     tocar(ag);
     DT.db.salvarAgendamento(ag);
     DT.audit.registrar(opts.origem === 'coletor' ? 'Alterou preparação (coletor)' : 'Alterou preparação', 'Agendamento', ag.pedido.numero, antes, prox + (extra && extra.obs ? ' — ' + extra.obs : ''));
+    if (prox === S.PRONTO && DT.avisos) DT.avisos.evento(ag, 'pronto');
     return { ok: true, ag: ag };
   }
   function voltarPreparacao(id, motivo, opts) {
@@ -594,5 +596,21 @@ DT.kpi = (function () {
     };
   }
 
-  return { tempos, alertas, resumoDia };
+  /* Metas de prazo (Configurações › Operação): % de pedidos prontos antes da
+     chegada do cliente e % de clientes levados à doca dentro do tempo-meta */
+  function metas(ags) {
+    const s = DT.db.settings();
+    const metaMin = Number(s.metaAtendimentoMin) || 15;
+    const chegaram = ags.filter(a => a.chegada && a.status !== S.CANCELADO);
+    const prontosAntes = chegaram.filter(a => { const e = a.etapas && a.etapas[S.PRONTO]; return e && e.ts && e.ts <= a.chegada; }).length;
+    const esperas = chegaram.map(a => U.difMin(a.chegada, a.inicioAtendimento)).filter(x => x !== null && x >= 0);
+    return {
+      comChegada: chegaram.length, comAtendimento: esperas.length,
+      prontosAntesPct: chegaram.length ? Math.round(prontosAntes / chegaram.length * 100) : null,
+      atendidosNoPrazoPct: esperas.length ? Math.round(esperas.filter(x => x <= metaMin).length / esperas.length * 100) : null,
+      esperaMedia: U.media(esperas),
+      metaProntoAntesPct: Number(s.metaProntoAntesPct) || 90, metaAtendidosPct: Number(s.metaAtendidosPct) || 80, metaAtendimentoMin: metaMin
+    };
+  }
+  return { tempos, alertas, resumoDia, metas };
 })();

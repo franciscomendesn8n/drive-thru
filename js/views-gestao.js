@@ -51,10 +51,20 @@ DT.views.dashboard = (function () {
       ['Não compareceram', r.naoCompareceu, 'c-red', 'ausências']
     ];
 
+    const mt = DT.kpi.metas(ags);
+    const metaHTML = (rot, val, meta, det) => {
+      const ok = val === null ? null : val >= meta;
+      return '<div class="meta-kpi' + (ok === null ? '' : ok ? ' ok' : ' crit') + '"><span>' + esc(rot) + '</span><b>' + (val === null ? '—' : val + '%') + '</b><small>meta ' + meta + '% · ' + esc(det) + '</small>' +
+        '<div class="bar-track"><div class="bar-fill' + (ok ? ' ok' : ok === false ? ' alt' : '') + '" style="width:' + (val || 0) + '%"></div><i style="left:' + meta + '%"></i></div></div>';
+    };
     el.innerHTML =
       '<div class="page-intro"><div class="row"><div class="field"><label for="db-data">Data</label><input type="date" id="db-data" class="input" value="' + data + '" style="width:170px"></div>' +
         '<span class="subtle" style="align-self:end;padding-bottom:10px">Atualiza sozinho a cada 30 s · ' + U.horaHM(agora) + '</span></div></div>' +
       '<div class="kpis">' + kpis.map(k => '<div class="kpi ' + k[2] + '"><b>' + k[1] + '</b><span>' + k[0] + '</span><small>' + k[3] + '</small></div>').join('') + '</div>' +
+      '<section class="card"><div class="card-head"><h3>Metas de prazo</h3><span class="spacer"></span>' + (DT.auth.pode('config.alterar') ? '<a class="btn link sm" href="#config/operacao">Ajustar metas</a>' : '') + '</div><div class="card-body"><div class="metas">' +
+        metaHTML('Pedidos prontos antes da chegada', mt.prontosAntesPct, mt.metaProntoAntesPct, mt.comChegada + ' cliente(s) que chegaram') +
+        metaHTML('Atendidos em até ' + mt.metaAtendimentoMin + ' min da chegada', mt.atendidosNoPrazoPct, mt.metaAtendidosPct, mt.comAtendimento + ' atendimento(s) iniciados') +
+      '</div></div></section>' +
       '<div class="grid-main-side">' +
         '<section class="card"><div class="card-head"><h3>Agenda do dia</h3><span class="spacer"></span>' + (DT.auth.pode('agenda.ver') ? '<a class="btn ghost sm" href="#agenda">Abrir agenda</a>' : '') + '</div>' +
           '<div class="table-wrap"><table class="table"><thead><tr><th>Hora</th><th>Pedido</th><th>Cliente</th><th>Status</th><th>Alertas</th></tr></thead><tbody>' +
@@ -117,6 +127,9 @@ DT.views.relatorios = (function () {
     { id: 'naocompareceu', label: 'Clientes que não compareceram', icon: 'user' },
     { id: 'tempomedio', label: 'Tempo médio de atendimento', icon: 'timeline' },
     { id: 'produtividade', label: 'Produtividade da equipe', icon: 'users' },
+    { id: 'separacao', label: 'Separação e conferência', icon: 'scan' },
+    { id: 'divergencias', label: 'Divergências por produto', icon: 'alert' },
+    { id: 'metas', label: 'Metas de prazo por dia', icon: 'chart' },
     { id: 'janelas', label: 'Utilização das janelas', icon: 'grid' }
   ];
 
@@ -250,6 +263,87 @@ DT.views.relatorios = (function () {
       resumo = [['Funcionários', linhas.length], ['Carregamentos', linhas.reduce((s, l) => s + l.qtd, 0)]];
       const max = Math.max(1, ...linhas.map(l => l.qtd));
       barras = { titulo: 'Carregamentos por funcionário', itens: linhas.filter(l => l.qtd).map(l => ({ rot: l.nome.split(' ')[0], pct: l.qtd / max * 100, txt: String(l.qtd), cls: 'ok' })) };
+    }
+    if (tipo === 'separacao') {
+      const p = {};
+      const add = (fase, nome, min, itens, div) => {
+        const k = fase + '|' + nome;
+        p[k] = p[k] || { fase: fase, nome: nome, pedidos: 0, itens: 0, tempos: [], div: 0 };
+        p[k].pedidos++; p[k].itens += itens; if (min !== null && min >= 0) p[k].tempos.push(min); p[k].div += div;
+      };
+      ags.forEach(a => {
+        const e = a.etapas || {}, c = a.coleta || {};
+        const itens = (a.pedido.itens || []).reduce((s, i) => s + (Number(i.qtd) || 0), 0) || Number(a.pedido.qtdItens) || 0;
+        const divs = f => (c.divergencias || []).filter(d => d.fase === f).length;
+        if (e[S.SEPARADO]) {
+          const sp = c.separacaoPor;
+          const min = sp && sp.inicio && sp.fim ? U.difMin(sp.inicio, sp.fim) : (e[S.EM_PREPARACAO] ? U.difMin(e[S.EM_PREPARACAO].ts, e[S.SEPARADO].ts) : null);
+          add('Separação', (sp && sp.nome) || e[S.SEPARADO].responsavel || e[S.SEPARADO].usuario || 'Não informado', min, itens, divs('separacao'));
+        }
+        if (e[S.CONFERIDO]) {
+          const cp = c.conferenciaPor;
+          const min = cp && cp.inicio && cp.fim ? U.difMin(cp.inicio, cp.fim) : (e[S.SEPARADO] ? U.difMin(e[S.SEPARADO].ts, e[S.CONFERIDO].ts) : null);
+          add('Conferência', (cp && cp.nome) || e[S.CONFERIDO].responsavel || e[S.CONFERIDO].usuario || 'Não informado', min, itens, divs('conferencia'));
+        }
+      });
+      linhas = Object.values(p).sort((a, b) => a.fase.localeCompare(b.fase) || b.pedidos - a.pedidos);
+      linhas.forEach(l => { l.media = U.media(l.tempos); const h = l.tempos.reduce((s, x) => s + x, 0) / 60; l.porHora = h > 0 ? Math.round(l.itens / h) : null; });
+      colunas = [
+        { label: 'Operador', html: l => esc(l.nome), csv: l => l.nome },
+        { label: 'Etapa', html: l => esc(l.fase), csv: l => l.fase },
+        { label: 'Pedidos', r: true, html: l => '<span class="mono">' + l.pedidos + '</span>', csv: l => l.pedidos },
+        { label: 'Itens', r: true, html: l => '<span class="mono">' + l.itens + '</span>', csv: l => l.itens },
+        { label: 'Tempo médio por pedido', r: true, html: l => '<span class="mono">' + dur(l.media) + '</span>', csv: l => durCSV(l.media) },
+        { label: 'Itens por hora', r: true, html: l => '<span class="mono">' + (l.porHora === null ? '—' : l.porHora) + '</span>', csv: l => l.porHora === null ? '' : l.porHora },
+        { label: 'Divergências', r: true, html: l => '<span class="mono' + (l.div ? ' crit-txt' : '') + '">' + l.div + '</span>', csv: l => l.div }
+      ];
+      const sep = linhas.filter(l => l.fase === 'Separação'), conf = linhas.filter(l => l.fase === 'Conferência');
+      const medF = ls => U.media([].concat(...ls.map(l => l.tempos)));
+      resumo = [['Pedidos separados', sep.reduce((s, l) => s + l.pedidos, 0)], ['Separação média', dur(medF(sep))], ['Pedidos conferidos', conf.reduce((s, l) => s + l.pedidos, 0)], ['Conferência média', dur(medF(conf))]];
+      const max = Math.max(1, ...linhas.map(l => l.porHora || 0));
+      barras = { titulo: 'Itens por hora (separação e conferência)', itens: linhas.filter(l => l.porHora).map(l => ({ rot: l.nome.split(' ')[0] + ' · ' + l.fase.slice(0, 4) + '.', pct: l.porHora / max * 100, txt: l.porHora + '/h', cls: l.fase === 'Separação' ? 'ok' : '' })) };
+    }
+    if (tipo === 'divergencias') {
+      const p = {};
+      ags.forEach(a => ((a.coleta && a.coleta.divergencias) || []).forEach(d => (d.faltas || []).forEach(x => {
+        const it = (a.pedido.itens || []).find(i => i.sku === x.sku) || {};
+        const e = ui.enderecoItem(it, a.pedido);
+        const k = x.sku || x.descricao;
+        p[k] = p[k] || { sku: x.sku, descricao: x.descricao, end: [e.rua, e.predio, e.nivel, e.apto].some(Boolean) ? 'Rua ' + (e.rua || '—') + ' · Pre ' + (e.predio || '—') + ' · Niv ' + (e.nivel || '—') + ' · Apto ' + (e.apto || '—') : '—', vezes: 0, faltou: 0, un: x.un, pedidos: [], motivo: '' };
+        p[k].vezes++; p[k].faltou += Math.max(0, (x.pedido || 0) - (x.lido || 0)); p[k].pedidos.push(a.pedido.numero); p[k].motivo = d.motivo || p[k].motivo;
+      })));
+      linhas = Object.values(p).sort((a, b) => b.vezes - a.vezes || b.faltou - a.faltou);
+      colunas = [
+        { label: 'Código', html: l => '<span class="mono">' + esc(l.sku || '—') + '</span>', csv: l => l.sku || '' },
+        { label: 'Descrição', html: l => esc(l.descricao), csv: l => l.descricao },
+        { label: 'Endereço no CD', html: l => '<span class="mono subtle">' + esc(l.end) + '</span>', csv: l => l.end },
+        { label: 'Ocorrências', r: true, html: l => '<span class="mono">' + l.vezes + '</span>', csv: l => l.vezes },
+        { label: 'Quantidade faltante', r: true, html: l => '<span class="mono">' + l.faltou + ' ' + esc(l.un || '') + '</span>', csv: l => l.faltou },
+        { label: 'Pedidos', html: l => '<span class="mono subtle">' + esc([...new Set(l.pedidos)].join(', ')) + '</span>', csv: l => [...new Set(l.pedidos)].join(', ') },
+        { label: 'Último motivo', html: l => esc(l.motivo || '—'), csv: l => l.motivo || '' }
+      ];
+      const nPed = new Set(ags.filter(a => a.coleta && a.coleta.divergencias && a.coleta.divergencias.length).map(a => a.id)).size;
+      resumo = [['Produtos com divergência', linhas.length], ['Ocorrências', linhas.reduce((s, l) => s + l.vezes, 0)], ['Pedidos afetados', nPed]];
+      const max = Math.max(1, ...linhas.map(l => l.vezes));
+      barras = { titulo: 'Produtos com mais divergências', itens: linhas.slice(0, 10).map(l => ({ rot: (l.descricao || '').slice(0, 18), pct: l.vezes / max * 100, txt: String(l.vezes), cls: 'crit' })) };
+    }
+    if (tipo === 'metas') {
+      const dias = {};
+      ags.forEach(a => { (dias[a.data] = dias[a.data] || []).push(a); });
+      linhas = Object.keys(dias).sort().map(d => Object.assign({ data: d }, DT.kpi.metas(dias[d])));
+      const ger = DT.kpi.metas(ags);
+      const cel = (v, m) => '<span class="mono ' + (v === null ? '' : v >= m ? 'ok-txt' : 'crit-txt') + '">' + (v === null ? '—' : v + '%') + '</span>';
+      colunas = [
+        { label: 'Data', html: l => U.fmtData(l.data) + ' <span class="subtle">' + U.diaSemana(l.data) + '</span>', csv: l => U.fmtData(l.data) },
+        { label: 'Clientes que chegaram', r: true, html: l => '<span class="mono">' + l.comChegada + '</span>', csv: l => l.comChegada },
+        { label: 'Prontos antes da chegada', r: true, html: l => cel(l.prontosAntesPct, l.metaProntoAntesPct), csv: l => l.prontosAntesPct === null ? '' : l.prontosAntesPct },
+        { label: 'Atendidos no prazo', r: true, html: l => cel(l.atendidosNoPrazoPct, l.metaAtendidosPct), csv: l => l.atendidosNoPrazoPct === null ? '' : l.atendidosNoPrazoPct },
+        { label: 'Espera média', r: true, html: l => '<span class="mono">' + dur(l.esperaMedia) + '</span>', csv: l => durCSV(l.esperaMedia) }
+      ];
+      resumo = [['Prontos antes da chegada', (ger.prontosAntesPct === null ? '—' : ger.prontosAntesPct + '%') + ' (meta ' + ger.metaProntoAntesPct + '%)'],
+        ['Atendidos em até ' + ger.metaAtendimentoMin + ' min', (ger.atendidosNoPrazoPct === null ? '—' : ger.atendidosNoPrazoPct + '%') + ' (meta ' + ger.metaAtendidosPct + '%)'],
+        ['Dias na meta (prontos)', linhas.filter(l => l.prontosAntesPct !== null && l.prontosAntesPct >= l.metaProntoAntesPct).length + ' de ' + linhas.filter(l => l.prontosAntesPct !== null).length]];
+      barras = { titulo: 'Prontos antes da chegada por dia (meta ' + ger.metaProntoAntesPct + '%)', itens: linhas.filter(l => l.prontosAntesPct !== null).map(l => ({ rot: U.fmtData(l.data).slice(0, 5), pct: l.prontosAntesPct, txt: l.prontosAntesPct + '%', cls: l.prontosAntesPct >= l.metaProntoAntesPct ? 'ok' : 'crit' })) };
     }
     if (tipo === 'janelas') {
       const cap = DT.agenda.capacidade();

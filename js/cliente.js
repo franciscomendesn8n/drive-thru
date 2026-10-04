@@ -106,6 +106,15 @@ DT.cliente = (function () {
     const cfg = DT.db.settings();
     return { ativo: cfg.rastreioAtivo !== false, cd: cfg.localCD || null, compartilhando: DT.rastreio.compartilhando(ag.id) };
   }
+  /* QR de chegada: o operador lê no check-in (câmera do celular ou leitor do coletor) */
+  function qrChegadaAtivo(ag) { return nuvem() ? ag.checkinQR !== false : DT.db.settings().checkinQR !== false; }
+  function cardQrChegada(ag) {
+    const link = location.origin + location.pathname + '#acompanhar-' + DT.ag.codigo(ag);
+    return '<section class="cli-card cli-qrchegada"><div class="row" style="flex-wrap:nowrap;align-items:center;gap:16px">' +
+      '<div class="cli-qr">' + ui.qrSVG(link) + '</div>' +
+      '<div><h2 class="cli-h2" style="margin:0 0 4px">QR de chegada</h2><p class="muted" style="margin:0">Ao chegar ao Drive Thru, mostre este código para a equipe. A chegada é registrada na hora, sem precisar falar o número do pedido.</p>' +
+      '<p class="subtle mono" style="margin:6px 0 0">' + esc(DT.ag.codigo(ag)) + '</p></div></div></section>';
+  }
   function podeRastrear(ag) {
     return rastreioCfg(ag).ativo && DT.STATUS_GRUPOS.ativosPreChegada.indexOf(ag.status) >= 0 && ag.data === U.dataISO();
   }
@@ -267,7 +276,7 @@ DT.cliente = (function () {
         btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Buscando…';
         let achado = null;
         try { achado = await DT.nuvem.acompanharPorPedido(ped, tel); }
-        catch (err) { telaBusca('Não foi possível consultar agora. Verifique a internet e tente novamente.'); return; }
+        catch (err) { telaBusca(/muitas tentativas/i.test((err && err.message) || '') ? err.message : 'Não foi possível consultar agora. Verifique a internet e tente novamente.'); return; }
         if (!achado) { telaBusca(naoAchou); return; }
         location.hash = '#acompanhar-' + achado;
         return;
@@ -332,6 +341,7 @@ DT.cliente = (function () {
         (reag && !encerrado ? ui.notice('info', 'Horário alterado de ' + U.fmtData(reag.deData).slice(0, 5) + ' ' + reag.deHora + ' para <b>' + U.fmtData(ag.data).slice(0, 5) + ' ' + ag.hora + '</b>.') : '') +
       '</section>' +
       (encerrado ? '' : cardRastreio(ag)) +
+      (!encerrado && DT.STATUS_GRUPOS.ativosPreChegada.indexOf(ag.status) >= 0 && qrChegadaAtivo(ag) ? cardQrChegada(ag) : '') +
       (encerrado ? '' :
       '<section class="cli-card"><h2 class="cli-h2">Andamento</h2><ol class="cli-steps">' + et.map((e, i) =>
         '<li class="' + (e.feito ? 'feito' : '') + (i === atual && i < et.length - 1 ? ' atual' : '') + '">' +

@@ -169,6 +169,7 @@ DT.app = (function () {
                 '<button type="button" class="icon-btn" id="btn-sair" aria-label="Sair" title="Sair" style="width:32px;height:32px;border:0;background:none">' + ui.icon('logout') + '</button></div>' +
             '</div>' +
           '</header>' +
+          '<div id="banner-sistema" class="banner-wrap"></div>' +
           '<main class="content" id="view"></main>' +
         '</div>' +
       '</div>';
@@ -260,6 +261,7 @@ DT.app = (function () {
 
   function parar() {
     if (DT.separacao) DT.separacao.parar();
+    if (DT.avisos) DT.avisos.parar();
     clearInterval(timerRelogio); clearInterval(timerRefresh);
     timerRelogio = timerRefresh = null;
   }
@@ -296,8 +298,11 @@ DT.app = (function () {
       return;
     }
     if (DT.separacao) DT.separacao.aoEntrar();
+    if (DT.avisos) DT.avisos.aoEntrar();
+    if (DT.seguranca) DT.seguranca.aoEntrar();
     montarShell();
     render();
+    if (DT.monitor) DT.monitor.iniciarBanner();
     timerRefresh = setInterval(atualizarAoVivo, 30000);
     if (trocarSenhaAoEntrar) { trocarSenhaAoEntrar = false; setTimeout(() => abrirTrocaSenha(true), 300); }
   }

@@ -259,11 +259,13 @@ DT.views.coletor = (function () {
     const c = ag.coleta, f = c.fase, t = totais(ag), itens = ag.pedido.itens || [];
     const pct = t.total ? Math.round(t.lidos / t.total * 100) : 0;
     const permitirDiv = cfg().permitirDivergencia !== false;
+    const rota = DT.db.settings().rotaSeparacao !== false && itens.some(i => { const e = ui.enderecoItem(i, ag.pedido); return e.rua || e.predio; });
     return '<section class="card"><div class="card-head"><h3>' + fases[f] + ' · pedido <span class="mono">' + esc(ag.pedido.numero) + '</span></h3><span class="spacer"></span><span class="subtle">' + esc(infoData(ag)) + '</span></div>' +
       '<div class="card-body stack">' +
         '<div><b>' + esc(ag.pedido.cliente) + '</b>' + (f === 'conferencia' && c.separacaoPor ? '<div class="subtle">Separado por ' + esc(c.separacaoPor.nome) + '</div>' : '') + '</div>' +
         '<div class="col-prog"><div class="bar-track"><div class="bar-fill' + (t.completo ? ' ok' : '') + '" style="width:' + pct + '%"></div></div><b class="mono">' + t.lidos + '/' + t.total + '</b></div>' +
-        (itens.length ? '<div class="col-itens">' + itens.map((i, k) => {
+        (itens.length ? (rota ? '<div class="subtle">Itens na ordem da rota do CD: Rua → Prédio → Nível → Apto.</div>' : '') + '<div class="col-itens">' + DT.impressao.ordemRota(ag.pedido).map(k => {
+          const i = itens[k];
           const lido = c[f][k] || 0, q = Number(i.qtd) || 0, ok = lido >= q;
           return '<div class="col-item' + (ok ? ' ok' : lido ? ' parcial' : '') + '"><span class="col-it-tx"><b>' + esc(i.descricao) + '</b><span class="subtle mono">' + esc(i.sku) + enderecoTxt(i, ag.pedido) + '</span></span>' +
             '<span class="col-it-q mono">' + lido + '<small>/' + q + ' ' + esc(i.un) + '</small></span></div>';
@@ -271,6 +273,7 @@ DT.views.coletor = (function () {
         '<div class="row wrap col-acoes">' +
           '<button type="button" class="btn success lg" id="col-fim"' + (t.completo || !itens.length ? '' : ' disabled') + '>' + ui.icon('check') + 'Finalizar ' + (f === 'separacao' ? 'separação' : 'conferência') + '</button>' +
           (permitirDiv && itens.length && !t.completo ? '<button type="button" class="btn ghost" id="col-div">' + ui.icon('alert') + 'Finalizar com divergência</button>' : '') +
+          '<button type="button" class="btn ghost" id="col-imp">' + ui.icon('print') + 'Imprimir</button>' +
           '<button type="button" class="btn ghost" id="col-zerar">' + ui.icon('refresh') + 'Zerar contagem</button>' +
           '<button type="button" class="btn ghost" id="col-trocar">' + ui.icon('back') + 'Trocar pedido</button>' +
         '</div>' +
@@ -309,6 +312,7 @@ DT.views.coletor = (function () {
       fb = { tipo: 'warn', titulo: 'Contagem zerada', texto: 'Bipe novamente os produtos do pedido ' + aberto.pedido.numero + '.' };
       desenhar();
     });
+    q('#col-imp').addEventListener('click', () => DT.impressao.escolher(aberto));
     q('#col-trocar').addEventListener('click', () => { agId = null; fb = null; desenhar(); });
   }
 

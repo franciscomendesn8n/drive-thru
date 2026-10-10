@@ -42,6 +42,12 @@ with sync_playwright() as p:
     for tela in ['agendar', 'agenda', 'preparacao', 'checkin', 'atendimento', 'entrega', 'pedido', 'painel', 'dashboard', 'relatorios', 'auditoria', 'usuarios']:
         ir(pg, '#' + tela)
         checa(pg.evaluate('location.hash').startswith('#' + tela) and pg.locator('#view').inner_html().strip() != '', 'tela ' + tela)
+    # Dashboard: gráfico da semana atual (Dom→Sáb), não segue o filtro de data
+    ir(pg, '#dashboard')
+    checa(pg.locator('.sem-svg .sem-col').count() == 7, 'gráfico de atendimentos da semana com 7 dias')
+    antes = pg.locator('.sem-svg').inner_html()
+    pg.fill('#db-data', '2026-09-01'); pg.dispatch_event('#db-data', 'change'); pg.wait_for_timeout(300)
+    checa(pg.locator('.sem-svg').inner_html() == antes, 'gráfico da semana ignora o filtro de data')
     # WhatsApp da empresa (remetente dos avisos)
     ir(pg, '#config/avisos'); pg.fill('#av-rem', '41 99876-5432'); pg.click('#av-salvar'); pg.wait_for_timeout(300)
     checa(pg.evaluate("DT.avisos.remetente().numero") == '5541998765432', 'WhatsApp da empresa salvo em Configurações › Avisos')

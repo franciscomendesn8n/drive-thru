@@ -950,3 +950,35 @@ body.modo-painel .banner-wrap { display: none; }
 .bars.larga .bar-row { grid-template-columns: 190px minmax(0, 1fr) 60px; }
 .bars.larga .bar-row > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: inherit; }
 @media (max-width: 600px) { .bars.larga .bar-row { grid-template-columns: 110px minmax(0, 1fr) 50px; } }
+
+/* ---------- Dashboard · Atendimentos da semana ---------- */
+.sem-card { margin-top: 16px; }
+.sem-svg { width: 100%; height: auto; max-height: 320px; display: block; font-family: var(--font-body); }
+.sem-base { stroke: var(--line-2); stroke-width: 1; }
+.sem-hit { fill: transparent; }
+.sem-col:hover .sem-hit { fill: var(--surface-2); }
+.sem-real { fill: #8A96A6; }
+.sem-prev { fill: #D7DDE5; }
+.sem-mais .sem-real { fill: var(--ok); }   .sem-mais .sem-prev { fill: var(--ok-soft); }
+.sem-menos .sem-real { fill: var(--crit); } .sem-menos .sem-prev { fill: var(--crit-soft); }
+.sem-val { font-size: 17px; font-weight: 700; fill: var(--ink); }
+.sem-pct { font-size: 12px; fill: var(--ink-2); }
+.sem-dia { font-size: 13px; font-weight: 600; fill: var(--ink-2); }
+.sem-data { font-size: 11px; fill: var(--ink-3); }
+.sem-hoje .sem-dia { fill: var(--ink); font-weight: 800; }
+.sem-hoje .sem-data { fill: var(--accent); font-weight: 700; }
+.sem-leg { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+.sem-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.sem-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: #8A96A6; }
+.sem-sw.mais { background: var(--ok); } .sem-sw.menos { background: var(--crit); } .sem-sw.prev { background: #D7DDE5; }
+.sem-tab td, .sem-tab th { text-align: center; } .sem-tab td:first-child, .sem-tab th:first-child { text-align: left; }
+:root[data-theme="dark"] .sem-neutro .sem-real { fill: #7D8999; }
+:root[data-theme="dark"] .sem-prev, :root[data-theme="dark"] .sem-sw.prev { fill: #3A4552; background: #3A4552; }
+:root[data-theme="dark"] .sem-mais .sem-prev { fill: #1d3b2a; }
+:root[data-theme="dark"] .sem-menos .sem-prev { fill: #4a2220; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sem-neutro .sem-real { fill: #7D8999; }
+  :root:not([data-theme="light"]) .sem-prev, :root:not([data-theme="light"]) .sem-sw.prev { fill: #3A4552; background: #3A4552; }
+  :root:not([data-theme="light"]) .sem-mais .sem-prev { fill: #1d3b2a; }
+  :root:not([data-theme="light"]) .sem-menos .sem-prev { fill: #4a2220; }
+}

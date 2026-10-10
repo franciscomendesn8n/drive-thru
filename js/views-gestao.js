@@ -89,11 +89,88 @@ DT.views.dashboard = (function () {
             return '<div class="bar-row"><span class="mono">' + h + ':00</span><div class="bar-track"><div class="bar-fill' + (pct >= 100 ? ' alt' : '') + '" style="width:' + pct + '%"></div></div><span class="mono subtle" style="text-align:right">' + p.oc + '/' + p.cap + '</span></div>';
           }).join('') : ui.empty('Sem janelas nesta data.', 'chart')) +
         '</div></div></section>' +
-      '</div>';
+      '</div>' +
+      semanaHTML();
 
     el.querySelector('#db-data').addEventListener('change', e => { view.data = e.target.value || U.dataISO(); desenhar(); });
     el.querySelectorAll('tr[data-ag]').forEach(tr => tr.addEventListener('click', e => { if (e.target.closest('[data-goto-pedido]')) return; DT.acoes.detalhe(DT.db.agendamentoPorId(tr.dataset.ag), () => desenhar()); }));
     el.querySelectorAll('[data-alerta]').forEach(b => b.addEventListener('click', () => acaoAlerta(b.dataset.alerta, b.dataset.id)));
+  }
+
+  /* ---- Atendimentos da semana atual (Dom → Sáb) ----
+     Sempre a semana de HOJE: não segue o filtro de data do dashboard.
+     Previsto = agendamentos do dia, exceto cancelados.
+     Realizado = retiradas concluídas / pedidos entregues.
+     Coluna empilhada: base = realizados; topo claro = previstos não realizados.
+     Verde = dia com mais atendimentos; vermelho = dia com menos (só dias já
+     ocorridos e com previsão); demais em cinza. */
+  const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  function semanaAtual() {
+    const hoje = U.dataISO();
+    const d0 = new Date(hoje + 'T12:00:00'); d0.setDate(d0.getDate() - d0.getDay());
+    const feitos = [S.CONCLUIDO, S.ENTREGUE];
+    const todos = DT.db.agendamentos();
+    return DIAS.map((nome, i) => {
+      const d = new Date(d0); d.setDate(d0.getDate() + i);
+      const iso = U.dataISO(d);
+      const doDia = todos.filter(a => a.data === iso && a.status !== S.CANCELADO);
+      const real = doDia.filter(a => feitos.indexOf(a.status) >= 0).length;
+      return { nome, iso, previsto: doDia.length, real, pct: doDia.length ? Math.round(real / doDia.length * 100) : null, futuro: iso > hoje, hoje: iso === hoje };
+    });
+  }
+  function semanaHTML() {
+    const dias = semanaAtual();
+    const validos = dias.filter(d => !d.futuro && !d.hoje && d.previsto > 0);   // hoje ainda está em andamento: fica fora da comparação
+    let max = null, min = null;
+    if (validos.length) {
+      max = Math.max.apply(null, validos.map(d => d.real));
+      min = Math.min.apply(null, validos.map(d => d.real));
+      if (max === min) { min = null; if (validos.length > 1) max = null; }   // empate geral: sem destaque
+    }
+    dias.forEach(d => { d.tom = d.futuro || d.hoje || !d.previsto ? 'neutro' : d.real === max ? 'mais' : d.real === min ? 'menos' : 'neutro'; });
+    const cel = window.innerWidth < 640;   // no celular o desenho é mais estreito para o texto não ficar miúdo
+    const W = cel ? 400 : 700, H = 280, top = 46, base = 236, alt = base - top, col = W / 7, bw = cel ? 38 : 54;
+    const escala = Math.max(1, ...dias.map(d => d.previsto));
+    const totR = dias.reduce((s, d) => s + d.real, 0), totP = dias.filter(d => !d.futuro).reduce((s, d) => s + d.previsto, 0);
+    const ini = dias[0].iso, fim = dias[6].iso;
+    const barras = dias.map((d, i) => {
+      const x = i * col + (col - bw) / 2, cx = i * col + col / 2;
+      const hP = d.previsto / escala * alt, hR = d.real / escala * alt;
+      const dica = d.nome + ' ' + U.fmtData(d.iso) + ': ' + d.real + ' de ' + d.previsto + ' previsto(s)' + (d.pct === null ? '' : ' (' + d.pct + '%)') + (d.futuro ? ' · dia ainda não ocorreu' : d.hoje ? ' · hoje, em andamento' : '');
+      let g = '<g class="sem-col sem-' + d.tom + (d.hoje ? ' sem-hoje' : '') + '"><title>' + esc(dica) + '</title>' +
+        '<rect class="sem-hit" x="' + (i * col) + '" y="' + top + '" width="' + col + '" height="' + (alt + 40) + '"/>';
+      if (d.previsto) {
+        const gap = hR > 0 && hP - hR > 0 ? 2 : 0;
+        if (hP - hR > 0) g += '<path class="sem-prev" d="' + colPath(x, base - hP, bw, hP - hR - gap, hR > 0 ? 'top' : 'both') + '"/>';
+        if (hR > 0) g += '<path class="sem-real" d="' + colPath(x, base - hR, bw, hR, hP - hR > 0 ? 'none' : 'top') + '"/>';
+      }
+      const yl = base - hP - 8;
+      g += d.previsto && !d.futuro
+        ? '<text class="sem-val" x="' + cx + '" y="' + (yl - 16) + '" text-anchor="middle">' + d.real + '</text><text class="sem-pct" x="' + cx + '" y="' + yl + '" text-anchor="middle">' + d.pct + '%</text>'
+        : '<text class="sem-pct" x="' + cx + '" y="' + yl + '" text-anchor="middle">' + (d.futuro && d.previsto ? d.previsto + ' prev.' : '—') + '</text>';
+      g += '<text class="sem-dia" x="' + cx + '" y="' + (base + 20) + '" text-anchor="middle">' + d.nome + '</text>' +
+        '<text class="sem-data" x="' + cx + '" y="' + (base + 36) + '" text-anchor="middle">' + (d.hoje ? 'hoje · ' : '') + U.fmtData(d.iso).slice(0, 5) + '</text></g>';
+      return g;
+    }).join('');
+    const tabela = '<table class="table sem-tab"><thead><tr><th>Dia</th>' + dias.map(d => '<th>' + d.nome + '</th>').join('') + '</tr></thead><tbody>' +
+      '<tr><td>Realizados</td>' + dias.map(d => '<td>' + (d.futuro ? '—' : d.real) + '</td>').join('') + '</tr>' +
+      '<tr><td>Previstos</td>' + dias.map(d => '<td>' + d.previsto + '</td>').join('') + '</tr>' +
+      '<tr><td>% realizado</td>' + dias.map(d => '<td>' + (d.futuro || d.pct === null ? '—' : d.pct + '%') + '</td>').join('') + '</tr></tbody></table>';
+    return '<section class="card sem-card"><div class="card-head"><h3>Atendimentos da semana</h3><span class="spacer"></span>' +
+        '<span class="subtle">' + U.fmtData(ini).slice(0, 5) + ' a ' + U.fmtData(fim) + ' · ' + totR + ' de ' + totP + ' previstos até hoje' + (totP ? ' (' + Math.round(totR / totP * 100) + '%)' : '') + '</span></div>' +
+      '<div class="card-body">' +
+        '<div class="sem-leg"><span><i class="sem-sw mais"></i>Dia com mais atendimentos</span><span><i class="sem-sw menos"></i>Dia com menos atendimentos</span><span><i class="sem-sw neutro"></i>Demais dias</span><span><i class="sem-sw prev"></i>Previsto não realizado</span></div>' +
+        '<svg class="sem-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Atendimentos realizados por dia da semana atual, com percentual sobre o previsto">' +
+          '<line class="sem-base" x1="0" x2="' + W + '" y1="' + base + '" y2="' + base + '"/>' + barras + '</svg>' +
+        '<p class="subtle">Número = atendimentos realizados (retiradas concluídas) · % = realizados ÷ previstos do dia (sem cancelados). Verde e vermelho comparam os dias já encerrados; hoje entra na comparação quando o dia termina. Mostra sempre a semana atual, de domingo a sábado — não muda com o filtro de data.</p>' +
+        '<details class="sep-det"><summary>Ver em tabela</summary><div class="table-wrap">' + tabela + '</div></details>' +
+      '</div></section>';
+  }
+  /* Retângulo com cantos de 4px só no topo (a base fica reta, apoiada no eixo) */
+  function colPath(x, y, w, h, cantos) {
+    const r = Math.min(4, h / 2, w / 2);
+    if (cantos === 'none' || h <= 0) return 'M' + x + ' ' + y + 'h' + w + 'v' + h + 'h' + (-w) + 'z';
+    return 'M' + x + ' ' + (y + h) + 'V' + (y + r) + 'q0 ' + (-r) + ' ' + r + ' ' + (-r) + 'H' + (x + w - r) + 'q' + r + ' 0 ' + r + ' ' + r + 'V' + (y + h) + 'z';
   }
 
   function alertaHTML(ag, al) {

@@ -900,6 +900,16 @@ body.modo-painel .sidebar, body.modo-painel .topbar { display: none !important; 
 body.modo-painel .content { padding: 0; max-width: none; }
 body.modo-painel .pn { border-radius: 0; min-height: 100vh; }
 body.modo-painel .shell { display: block; }
+/* Botões de tela cheia: destaque e saída fixa que some quando parado */
+.pn-ctl .btn.pn-btn-tela { background: #AB0F14; border-color: #AB0F14; }
+.pn-ctl .btn.pn-btn-tela:hover { background: #c4161c; }
+body.modo-painel .pn-ctl .btn.pn-btn-tela { background: transparent; border-color: rgba(255,255,255,.3); }
+.pn-sair { position: fixed; right: 22px; bottom: 22px; z-index: 50; display: inline-flex; align-items: center; gap: 8px; background: #AB0F14; color: #fff; border: 0; border-radius: 99px; padding: 12px 20px; font: 700 15px/1 inherit; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+.pn-sair small { font-weight: 400; opacity: .8; }
+.pn-sair:hover { background: #c4161c; }
+.pn-ctl, .pn-sair { transition: opacity .4s; }
+body.pn-ocioso .pn-ctl, body.pn-ocioso .pn-sair { opacity: 0; pointer-events: none; }
+body.pn-ocioso { cursor: none; }
 @media (max-width: 900px) { .pn-grid { grid-template-columns: 1fr; } .pn-call { flex-direction: column; align-items: flex-start; } .pn-call-d { text-align: left; } }
 @media print { .naoimprime { display: none; } }
 

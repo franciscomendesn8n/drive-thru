@@ -43,7 +43,11 @@ with sync_playwright() as p:
         ir(pg, '#' + tela)
         checa(pg.evaluate('location.hash').startswith('#' + tela) and pg.locator('#view').inner_html().strip() != '', 'tela ' + tela)
     # Painel de TV não pode "puxar" a tela de volta depois que o usuário troca de aba
-    ir(pg, '#painel'); ir(pg, '#agenda')
+    ir(pg, '#painel'); pg.click('#pn-tela'); pg.wait_for_timeout(200)
+    checa(pg.locator('#pn-sair').count() == 1 and pg.evaluate("document.body.classList.contains('modo-painel')"), 'painel de TV entra em tela cheia')
+    pg.click('#pn-sair'); pg.wait_for_timeout(200)
+    checa(not pg.evaluate("document.body.classList.contains('modo-painel')"), 'painel de TV sai da tela cheia')
+    ir(pg, '#agenda')
     pg.clock.run_for(46000); pg.wait_for_timeout(300)
     checa(pg.evaluate('location.hash').startswith('#agenda') and pg.locator('#view #pn').count() == 0, 'painel de TV não volta sozinho após trocar de aba')
     num = pg.evaluate("DT.db.agendamentos().find(a=>(a.pedido.itens||[]).length>1).pedido.numero")

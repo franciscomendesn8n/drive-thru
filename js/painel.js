@@ -59,7 +59,7 @@ DT.views.painel = (function () {
       '<div class="pn" id="pn">' +
         '<div class="pn-topo"><div class="row"><img data-logo-empresa src="' + esc(DT.aparencia.logo()) + '" alt="" class="pn-logo"><div><b class="pn-tit">Drive Thru</b><span class="pn-sub">' + esc(s.unidade || '') + '</span></div></div>' +
           '<div class="row pn-ctl"><button type="button" class="btn ghost sm" id="pn-som">' + ui.icon('play', 'icon-sm') + (som ? 'Som ligado' : 'Ativar som') + '</button>' +
-          '<button type="button" class="btn ghost sm" id="pn-tela">' + ui.icon('tv', 'icon-sm') + (telaCheia() ? 'Sair da tela cheia' : 'Tela cheia') + '</button></div>' +
+          '<button type="button" class="btn sm pn-btn-tela" id="pn-tela" title="Atalho: duplo clique no painel">' + ui.icon('tv', 'icon-sm') + (telaCheia() ? 'Sair da tela cheia' : 'Tela cheia') + '</button></div>' +
           '<div class="pn-hora mono">' + U.horaHM() + '</div></div>' +
         '<div class="pn-grid">' +
           '<section class="pn-chamada">' +
@@ -81,21 +81,38 @@ DT.views.painel = (function () {
             '<div class="pn-rodape">' + d.prontos + ' pedido(s) pronto(s) aguardando o cliente</div>' +
           '</section>' +
         '</div>' +
+        (telaCheia() ? '<button type="button" class="pn-sair" id="pn-sair">' + ui.icon('x', 'icon-sm') + 'Sair da tela cheia <small>(Esc)</small></button>' : '') +
       '</div>';
     el.querySelector('#pn-som').addEventListener('click', () => { som = !som; if (som) { prepararAudio(); tocar(); } desenhar(); });
     el.querySelector('#pn-tela').addEventListener('click', alternarTela);
+    const bs = el.querySelector('#pn-sair'); if (bs) bs.addEventListener('click', () => { sairTela(); desenhar(); });
+    el.querySelector('#pn').addEventListener('dblclick', e => { if (!e.target.closest('button')) alternarTela(); });
   }
+
+  /* Em tela cheia os controles somem após alguns segundos parados e
+     voltam ao mexer o mouse ou tocar na tela (a TV fica limpa). */
+  let ocioso = null;
+  function acordar() {
+    if (!telaCheia()) return;
+    document.body.classList.remove('pn-ocioso');
+    clearTimeout(ocioso);
+    ocioso = setTimeout(() => { if (telaCheia()) document.body.classList.add('pn-ocioso'); }, 4000);
+  }
+  ['mousemove', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, acordar, { passive: true }));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && telaCheia() && ativo()) { sairTela(); desenhar(); } });
   function telaCheia() { return document.body.classList.contains('modo-painel'); }
   function alternarTela() {
     if (telaCheia()) { sairTela(); }
     else {
       document.body.classList.add('modo-painel');
       try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) { /* sem suporte */ }
+      acordar();
     }
     desenhar();
   }
   function sairTela() {
-    document.body.classList.remove('modo-painel');
+    clearTimeout(ocioso);
+    document.body.classList.remove('modo-painel', 'pn-ocioso');
     try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* ok */ }
   }
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && telaCheia()) { document.body.classList.remove('modo-painel'); if (ativo()) desenhar(); } });

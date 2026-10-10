@@ -9,6 +9,7 @@
 //   previa                       → devolve o resumo do dia sem enviar (configuração)
 //   testar      { telefone? }    → envia uma mensagem de teste ao webhook (configuração)
 //   salvarToken { token } / statusToken                              (configuração)
+// Todo envio leva "remetente" (WhatsApp da empresa, só dígitos) e "remetenteNome".
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -69,8 +70,13 @@ export function preencher(modelo: string, v: Record<string, any>) {
   return String(modelo || "").replace(/\{(\w+)\}/g, (m, k) => (v[k] !== undefined && v[k] !== null ? String(v[k]) : m));
 }
 
+/* Número de WhatsApp da empresa que envia os avisos (Configurações › Avisos) */
 // deno-lint-ignore no-explicit-any
-async function postar(cfg: any, token: string | null, corpo: unknown) {
+const remetente = (cfg: any) => ({ remetente: telefoneE164(String(cfg?.remetente || "")), remetenteNome: String(cfg?.remetenteNome || "") });
+
+// deno-lint-ignore no-explicit-any
+async function postar(cfg: any, token: string | null, corpo: any) {
+  corpo = { ...remetente(cfg), ...corpo };
   const bloqueio = urlPermitida(String(cfg.webhookUrl || ""));
   if (bloqueio) return { ok: false, detalhe: bloqueio };
   const ctrl = new AbortController();
@@ -94,7 +100,7 @@ async function variaveis(a: any, cfg: any, settings: any) {
   const cliente = String(p.cliente || "");
   return {
     cliente, primeiroNome: cliente.split(/\s+/)[0] || cliente, pedido: p.numero, data: fmtData(doc.data || a.data), hora: doc.hora || a.hora,
-    link: base ? base + "#acompanhar-" + cod : "", codigo: cod, unidade: settings?.unidade || "", doca: doc.doca || "",
+    link: base ? base + "#acompanhar-" + cod : "", codigo: cod, unidade: settings?.unidade || "", doca: doc.doca || "", whatsappEmpresa: String(cfg?.remetente || ""),
     telefone: telefoneE164((doc.veiculo && doc.veiculo.contato) || p.telefone || ""),
   };
 }

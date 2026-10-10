@@ -19,10 +19,10 @@ DT.avisos = (function () {
   };
   const TIPOS = { confirmacao: 'Confirmação do agendamento', pronto: 'Pedido pronto', lembrete: 'Lembrete antes do horário' };
   const ROT = { confirmacao: 'confirmação', pronto: 'pronto', lembrete: 'lembrete' };
-  const VARS = ['{cliente}', '{primeiroNome}', '{pedido}', '{data}', '{hora}', '{link}', '{codigo}', '{unidade}'];
+  const VARS = ['{cliente}', '{primeiroNome}', '{pedido}', '{data}', '{hora}', '{link}', '{codigo}', '{unidade}', '{whatsappEmpresa}'];
   const copia = o => JSON.parse(JSON.stringify(o));
   function padrao() {
-    return { modo: 'link', webhookUrl: '', siteUrl: location.href.split('#')[0], eventos: { confirmacao: true, pronto: true, lembrete: true },
+    return { modo: 'link', remetente: '', remetenteNome: '', webhookUrl: '', siteUrl: location.href.split('#')[0], eventos: { confirmacao: true, pronto: true, lembrete: true },
       lembreteMin: 60, modelos: copia(MODELOS), resumo: { ativo: false, hora: '19:00', destinatarios: '' } };
   }
   function config() {
@@ -38,10 +38,24 @@ DT.avisos = (function () {
     if (d.length <= 11) d = '55' + d.replace(/^0+/, '');
     return d;
   }
+  /* Número de WhatsApp da empresa (remetente dos avisos) */
+  function soDigitos(t) {
+    let d = String(t || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length <= 11) d = '55' + d.replace(/^0+/, '');
+    return d;
+  }
+  function remetenteValido(t) { const d = soDigitos(t); return !d || (/^55\d{10,11}$/.test(d)) || (!/^55/.test(d) && d.length >= 10 && d.length <= 15); }
+  function fmtTelefone(t) {
+    const d = soDigitos(t);
+    const m = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(d);
+    return m ? '+55 (' + m[1] + ') ' + m[2] + '-' + m[3] : (d ? '+' + d : '');
+  }
+  function remetente() { const c = config(); return { numero: soDigitos(c.remetente), nome: c.remetenteNome || '', formatado: fmtTelefone(c.remetente) }; }
   function variaveis(ag) {
     const cli = String(ag.pedido.cliente || '');
     return { cliente: cli, primeiroNome: cli.split(/\s+/)[0] || cli, pedido: ag.pedido.numero, data: U.fmtData(ag.data), hora: ag.hora,
-      link: DT.ag.linkCliente(ag), codigo: DT.ag.codigo(ag), unidade: DT.db.settings().unidade || '' };
+      link: DT.ag.linkCliente(ag), codigo: DT.ag.codigo(ag), unidade: DT.db.settings().unidade || '', whatsappEmpresa: remetente().formatado };
   }
   function preencher(modelo, v) { return String(modelo || '').replace(/\{(\w+)\}/g, (m, k) => v[k] !== undefined && v[k] !== null ? String(v[k]) : m); }
   function mensagem(ag, tipo) { return preencher(config().modelos[tipo] || MODELOS[tipo], variaveis(ag)); }
@@ -56,10 +70,13 @@ DT.avisos = (function () {
     if (c.modo === 'desligado') return '';
     const ui = DT.ui, esc = U.esc;
     if (!telefone(ag)) return '<span class="subtle">Sem telefone do cliente para WhatsApp.</span>';
+    const rem = remetente();
+    const dica = rem.numero ? 'Envie pelo WhatsApp da empresa ' + rem.formatado + (rem.nome ? ' (' + rem.nome + ')' : '') : 'Abre a conversa com a mensagem pronta';
     const pronto = DT.ag.prepAtual(ag) === DT.STATUS.PRONTO;
     const tipos = ['confirmacao'].concat(pronto ? ['pronto'] : []).concat(ag.data === U.dataISO() ? ['lembrete'] : []);
     return '<div class="row wrap" style="gap:6px">' + tipos.map(t =>
-      '<a class="btn ghost sm" target="_blank" rel="noopener" href="' + esc(linkWhats(ag, t)) + '" data-whats="' + t + '">' + ui.icon('chat', 'icon-sm') + 'WhatsApp: ' + ROT[t] + '</a>').join('') + '</div>';
+      '<a class="btn ghost sm" target="_blank" rel="noopener" href="' + esc(linkWhats(ag, t)) + '" data-whats="' + t + '" title="' + esc(dica) + '">' + ui.icon('chat', 'icon-sm') + 'WhatsApp: ' + ROT[t] + '</a>').join('') + '</div>' +
+      (c.modo === 'link' && rem.numero ? '<span class="hint">Envie pelo WhatsApp da empresa: <b class="mono">' + esc(rem.formatado) + '</b></span>' : '');
   }
   function ligarBotoes(root, ag) {
     root.querySelectorAll('[data-whats]').forEach(a => a.addEventListener('click', () => {
@@ -111,6 +128,11 @@ DT.avisos = (function () {
              ['webhook', 'Automático (webhook)', 'O servidor envia sozinho pelo webhook da Condor (n8n, Make ou provedor de WhatsApp): confirmação, pronto e lembrete.']]
             .map(m => '<label class="sep-modo' + (c.modo === m[0] ? ' sel' : '') + '"><input type="radio" name="av-modo" value="' + m[0] + '"' + (c.modo === m[0] ? ' checked' : '') + (pode ? '' : ' disabled') + '><div><b>' + m[1] + '</b><span class="subtle" style="display:block;margin-top:2px">' + m[2] + '</span></div></label>').join('') +
           '</div></div>' +
+          (c.modo !== 'desligado' ? '<div class="fields-2">' +
+            '<div class="field"><label for="av-rem">Número do WhatsApp da empresa (remetente)</label><input id="av-rem" class="input mono" inputmode="tel" value="' + esc(c.remetente) + '" placeholder="(41) 99999-9999"' + (pode ? '' : ' disabled') + '>' +
+              '<span class="hint">' + (w ? 'Número que envia os avisos ao cliente. Vai no envio ao webhook (<span class="mono">remetente</span>) para o n8n / provedor usar esta linha.' : 'Número que deve enviar os avisos. Os botões “WhatsApp” abrem a conversa no WhatsApp conectado no aparelho: use este número no WhatsApp Web / Business do computador.') + '</span></div>' +
+            '<div class="field"><label for="av-rem-nome">Nome exibido (opcional)</label><input id="av-rem-nome" class="input" maxlength="60" value="' + esc(c.remetenteNome) + '" placeholder="Condor Drive Thru"' + (pode ? '' : ' disabled') + '><span class="hint">Use a variável <span class="mono">{whatsappEmpresa}</span> nos textos para mostrar o número ao cliente.</span></div>' +
+          '</div>' : '') +
           (w ? '<div class="fields-2">' +
             '<div class="field"><label for="av-url">Endereço do webhook (HTTPS)</label><input id="av-url" class="input mono" value="' + esc(c.webhookUrl) + '" placeholder="https://n8n.suaempresa.com.br/webhook/drive-thru"' + (pode ? '' : ' disabled') + '><span class="hint">Recebe um POST em JSON com <span class="mono">evento, mensagem, telefone, pedido, link…</span></span></div>' +
             '<div class="field"><label for="av-site">Endereço do site (para o link do cliente)</label><input id="av-site" class="input mono" value="' + esc(c.siteUrl) + '"' + (pode ? '' : ' disabled') + '></div>' +
@@ -149,6 +171,8 @@ DT.avisos = (function () {
       const q = s => box.querySelector(s);
       const r = copia(rasc);
       const m = box.querySelector('[name="av-modo"]:checked'); if (m) r.modo = m.value;
+      if (q('#av-rem')) r.remetente = q('#av-rem').value.trim();
+      if (q('#av-rem-nome')) r.remetenteNome = q('#av-rem-nome').value.trim();
       if (q('#av-url')) r.webhookUrl = q('#av-url').value.trim();
       if (q('#av-site')) r.siteUrl = q('#av-site').value.trim();
       if (q('#av-lemb')) r.lembreteMin = Math.min(1440, Math.max(10, Number(q('#av-lemb').value) || 60));
@@ -168,13 +192,18 @@ DT.avisos = (function () {
       const mp = q('#av-mod-padrao'); if (mp) mp.addEventListener('click', () => { rasc = ler(); rasc.modelos = copia(MODELOS); desenhar(); });
       q('#av-salvar').addEventListener('click', () => {
         const n = ler();
+        if (!remetenteValido(n.remetente)) { ui.toast('Número do WhatsApp da empresa inválido. Informe com DDD, ex.: (41) 99999-9999.', 'warn'); return; }
+        if (n.modo === 'webhook' && !n.remetente) { ui.toast('Informe o número do WhatsApp da empresa que enviará os avisos.', 'warn'); return; }
+        n.remetente = n.remetente ? fmtTelefone(n.remetente) : '';
         if (n.modo === 'webhook' && !/^https:\/\/[^\s]+$/i.test(n.webhookUrl)) { ui.toast('Informe o endereço do webhook começando com https://', 'warn'); return; }
         if (n.resumo.ativo && n.modo !== 'webhook') { ui.toast('O resumo diário usa o webhook: escolha o modo "Automático (webhook)".', 'warn'); return; }
         if (n.resumo.ativo && !n.resumo.destinatarios) { ui.toast('Informe ao menos um e-mail para o resumo diário.', 'warn'); return; }
         const antes = config();
         DT.db.set('avisos', n);
         rasc = config();
-        DT.audit.registrar('Alterou configuração de avisos', 'Configuração', 'avisos', antes.modo + (antes.resumo.ativo ? ' + resumo' : ''), n.modo + (n.resumo.ativo ? ' + resumo ' + n.resumo.hora : ''));
+        DT.audit.registrar('Alterou configuração de avisos', 'Configuração', 'avisos',
+          antes.modo + (antes.remetente ? ' · ' + antes.remetente : '') + (antes.resumo.ativo ? ' + resumo' : ''),
+          n.modo + (n.remetente ? ' · ' + n.remetente : '') + (n.resumo.ativo ? ' + resumo ' + n.resumo.hora : ''));
         ui.toast('Configuração de avisos salva.');
         aoEntrar();
         desenhar();
@@ -210,5 +239,5 @@ DT.avisos = (function () {
     carregar();
   }
 
-  return { MODELOS, TIPOS, config, mensagem, linkWhats, telefone, botoes, ligarBotoes, evento, ciclo, aoEntrar, parar, montarConfig, ultimoCiclo: () => ultimoCiclo };
+  return { MODELOS, TIPOS, config, remetente, fmtTelefone, mensagem, linkWhats, telefone, botoes, ligarBotoes, evento, ciclo, aoEntrar, parar, montarConfig, ultimoCiclo: () => ultimoCiclo };
 })();

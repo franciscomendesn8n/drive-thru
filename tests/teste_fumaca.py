@@ -42,6 +42,9 @@ with sync_playwright() as p:
     for tela in ['agendar', 'agenda', 'preparacao', 'checkin', 'atendimento', 'entrega', 'pedido', 'painel', 'dashboard', 'relatorios', 'auditoria', 'usuarios']:
         ir(pg, '#' + tela)
         checa(pg.evaluate('location.hash').startswith('#' + tela) and pg.locator('#view').inner_html().strip() != '', 'tela ' + tela)
+    # WhatsApp da empresa (remetente dos avisos)
+    ir(pg, '#config/avisos'); pg.fill('#av-rem', '41 99876-5432'); pg.click('#av-salvar'); pg.wait_for_timeout(300)
+    checa(pg.evaluate("DT.avisos.remetente().numero") == '5541998765432', 'WhatsApp da empresa salvo em Configurações › Avisos')
     # Painel de TV não pode "puxar" a tela de volta depois que o usuário troca de aba
     ir(pg, '#painel'); pg.click('#pn-tela'); pg.wait_for_timeout(200)
     checa(pg.locator('#pn-sair').count() == 1 and pg.evaluate("document.body.classList.contains('modo-painel')"), 'painel de TV entra em tela cheia')

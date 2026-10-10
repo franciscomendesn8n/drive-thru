@@ -15,9 +15,14 @@ DT.views.painel = (function () {
     el = c; chamadosVistos = null;
     desenhar();
     clearInterval(timer);
-    timer = setInterval(() => { if (el && el.isConnected) desenhar(); else { clearInterval(timer); timer = null; sairTela(); } }, 15000);
+    timer = setInterval(() => { if (ativo()) desenhar(); else parar(); }, 15000);
   };
-  view.refresh = function () { if (el && el.isConnected) desenhar(); };
+  view.refresh = function () { if (ativo()) desenhar(); };
+
+  /* O container #view é o mesmo para todas as telas: o painel só se
+     redesenha enquanto a rota for #painel (senão "sequestrava" a outra tela). */
+  function ativo() { return !!el && el.isConnected && /^#painel(\/|$)/.test(location.hash); }
+  function parar() { clearInterval(timer); timer = null; sairTela(); }
 
   function cfg() { return DT.db.settings(); }
   function nome(ag) {
@@ -93,8 +98,8 @@ DT.views.painel = (function () {
     document.body.classList.remove('modo-painel');
     try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* ok */ }
   }
-  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && telaCheia()) { document.body.classList.remove('modo-painel'); if (el && el.isConnected) desenhar(); } });
-  window.addEventListener('hashchange', () => { if (!/^#painel/.test(location.hash)) sairTela(); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && telaCheia()) { document.body.classList.remove('modo-painel'); if (ativo()) desenhar(); } });
+  window.addEventListener('hashchange', () => { if (!/^#painel(\/|$)/.test(location.hash)) parar(); });
 
   function prepararAudio() {
     try { ctxAudio = ctxAudio || new (window.AudioContext || window.webkitAudioContext)(); if (ctxAudio.state === 'suspended') ctxAudio.resume(); } catch (e) { ctxAudio = null; }

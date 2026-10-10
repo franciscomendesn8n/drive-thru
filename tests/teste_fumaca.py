@@ -42,6 +42,10 @@ with sync_playwright() as p:
     for tela in ['agendar', 'agenda', 'preparacao', 'checkin', 'atendimento', 'entrega', 'pedido', 'painel', 'dashboard', 'relatorios', 'auditoria', 'usuarios']:
         ir(pg, '#' + tela)
         checa(pg.evaluate('location.hash').startswith('#' + tela) and pg.locator('#view').inner_html().strip() != '', 'tela ' + tela)
+    # Painel de TV não pode "puxar" a tela de volta depois que o usuário troca de aba
+    ir(pg, '#painel'); ir(pg, '#agenda')
+    pg.clock.run_for(46000); pg.wait_for_timeout(300)
+    checa(pg.evaluate('location.hash').startswith('#agenda') and pg.locator('#view #pn').count() == 0, 'painel de TV não volta sozinho após trocar de aba')
     num = pg.evaluate("DT.db.agendamentos().find(a=>(a.pedido.itens||[]).length>1).pedido.numero")
     html = pg.evaluate("DT.impressao.romaneioHTML(DT.db.agendamentos().find(a=>a.pedido.numero===%r))" % num)
     checa('<svg' in html and num in html, 'romaneio com código de barras')
